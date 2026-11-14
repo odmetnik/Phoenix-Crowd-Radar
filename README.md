@@ -29,7 +29,7 @@ Aplikacija radi samo dok je otvorena. Zaključavanje/drugi app/Stop zaustavlja G
 
 ## Help pri svakoj nadogradnji
 
-`app/src/main/assets/help.txt` mora imati VERSION jednaku APK verziji i stvarni opis trenutačnog ponašanja. CI odbija produkcijsku promjenu Java koda bez promjene Helpa u istom commitu. Android preBuild također provjerava verziju Helpa. Pravilo je trajno zapisano u AGENTS.md.
+`app/src/main/assets/help.txt` mora imati VERSION jednaku APK verziji i stvarni opis trenutačnog ponašanja. CI odbija promjenu izvora, manifesta, resursa ili konfiguracije aplikacije bez promjene Helpa u istom commitu. Android preBuild također provjerava verziju Helpa. Pravilo je trajno zapisano u AGENTS.md.
 
 ## Build
 

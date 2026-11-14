@@ -37,7 +37,7 @@ Nearby može koristiti Bluetooth i Wi-Fi kao podatkovni transport. Wi-Fi Aware i
 
 KAKO ČITATI RADAR / PRECIZNOST
 Točka: imamo svježu udaljenost i valjan smjer. Krug bez točke: postoji udaljenost, ali smjer nije dostupan. Kada postoje metarske vrijednosti, radijus radara je automatski označen u metrima; BLE članovi bez mjerenja ostaju na popisu i ne dobivaju lažnu poziciju u tom mjerilu. Kada nema metara, pojasevi označavaju samo razrede BLE signala.
-Kartice odvajaju podržani hardver od aktivnog izvora. Za udaljenost prednost ima svjež UWB, zatim valjan GPS, zatim BLE bez metara. Izvor udaljenosti i izvor smjera mogu se razlikovati i prikazani su zasebno. GPS ~ nije jednako UWB mjerenju.
+Kartice odvajaju podržani hardver od aktivnog izvora. Za udaljenost prednost ima svjež UWB, zatim valjan GPS, zatim BLE bez metara. Izvor udaljenosti i izvor smjera mogu se razlikovati i prikazani su zasebno. GPS ~ nije jednako UWB mjerenju. Kada se GPS koordinate poklope, 0 m ostaje procjena s pogreškom, a nije dokaz da telefoni fizički stoje na istom mjestu.
 DEMO je simulacija: prikazane osobe nisu stvarno pronađene i pravi radio/GPS/UWB su zaustavljeni.
 
 PRIVATNOST I OGRANIČENJA
@@ -53,4 +53,4 @@ PROMJENE — 0.3.0-dev
 • Uveden stalni javni ključ za razvojne APK-ove. Prethodna 0.2 može tražiti deinstalaciju i ponovno pridruživanje grupi; buduće razvojne nadogradnje koriste isti ključ.
 • Android izrada koristi SDK 36 zbog Jetpack UWB biblioteke; minimalna instalacija ostaje Android 12.
 • Pomoć je pregledna po temama, a status GPS/UWB-a na glavnom ekranu osvježava se tijekom rada.
-• Dodan ovaj Help. Svaka nadogradnja mora ažurirati Help; CI provjerava verziju i promjenu pomoći uz kod.
+• Dodan ovaj Help. Svaka nadogradnja mora ažurirati Help; CI provjerava verziju i promjenu pomoći uz izvore, manifest, resurse i konfiguraciju aplikacije.

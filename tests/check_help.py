@@ -15,6 +15,6 @@ except subprocess.CalledProcessError:
     changed=[]
 else:
     changed=result.stdout.splitlines()
-if any(p.startswith('app/src/main/java/') for p in changed):
-    assert help_path in changed,'Production code changed: update Help in the same commit'
+if any((p.startswith('app/src/main/') and p!=help_path) or p=='app/build.gradle.kts' for p in changed):
+    assert help_path in changed,'App source/resources/build changed: update Help in the same commit'
 print(f'PASS: Help {version}, required topics and code-change policy')

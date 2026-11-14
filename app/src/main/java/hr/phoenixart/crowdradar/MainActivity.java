@@ -377,16 +377,16 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
                 text(c,"03 • BEZ SMJERA",x,y+r*.64f,9,AMBER);
                 text(c,"DEMO",x,y-r-dp(15),12,AMBER);
             }else if(searching||!peers.isEmpty()){
-                double maximum=0;for(Peer peer:peers.values()){Estimate e=estimate(peer);if(Double.isFinite(e.meters))maximum=Math.max(maximum,e.meters);}
+                double maximum=0;boolean metric=false;for(Peer peer:peers.values()){Estimate e=estimate(peer);if(Double.isFinite(e.meters)){maximum=Math.max(maximum,e.meters);metric=true;}}
                 double scale=Math.max(10,Math.ceil(maximum/10)*10);int index=0;
                 for(Peer peer:peers.values()){index++;Estimate e=estimate(peer);
                     if(Double.isFinite(e.meters)){float radius=(float)(r*Math.min(1,e.meters/scale));int color=e.distanceSource.equals("UWB")?CYAN:GREEN;
                         if(e.angle!=null){dot(c,x,y,radius,e.angle.floatValue(),String.format(Locale.ROOT,"%02d",index),color);}
                         else{p.setStyle(Paint.Style.STROKE);p.setColor(color);p.setAlpha(100);p.setStrokeWidth(dp(2));c.drawCircle(x,y,radius,p);p.setAlpha(255);}
-                    }else if(maximum==0&&SystemClock.elapsedRealtime()-peer.seen<=12000){float band=peer.rssi>=-60?.25f:peer.rssi>=-75?.5f:.78f;
+                    }else if(!metric&&SystemClock.elapsedRealtime()-peer.seen<=12000){float band=peer.rssi>=-60?.25f:peer.rssi>=-75?.5f:.78f;
                         p.setStyle(Paint.Style.STROKE);p.setColor(AMBER);p.setAlpha(65);p.setStrokeWidth(dp(4));c.drawCircle(x,y,r*band,p);p.setAlpha(255);}
                 }
-                text(c,maximum>0?String.format(Locale.ROOT,"RADIJUS %.0f m",scale):"BLE • BEZ METARA",x,y-r-dp(15),10,MUTED);
+                text(c,metric?String.format(Locale.ROOT,"RADIJUS %.0f m",scale):"BLE • BEZ METARA",x,y-r-dp(15),10,MUTED);
             }else text(c,"RADAR ZAUSTAVLJEN",x,y-r*.55f,10,MUTED);
             p.setStyle(Paint.Style.FILL);p.setColor(CYAN);c.drawCircle(x,y,dp(7),p);
             text(c,"TI",x,y+dp(25),10,CYAN);
