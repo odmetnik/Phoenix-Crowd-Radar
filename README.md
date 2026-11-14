@@ -50,6 +50,6 @@ Od 0.3 koristimo stalan javni razvojni potpisni ključ (`signing/README.md`), na
 
 ## Provjere i privatnost
 
-40 provjera čiste Java jezgre obuhvaća geometriju, pogreške, starost, neslaganje izvora, položaj antene, grupne pakete i šifriranje. Parser izvora nije zamjena za Android build. CI uključuje Android emulator smoke test spremanja grupnog ključa, QR dijaloga, uvoza pozivnice i početnog postupka. Fizička radio-kompatibilnost mora se provjeriti odvojeno. Vizualna provjera trenutačno je blokirana mrežnom greškom cloud pregleda; vidi design-qa.md.
+40 provjera čiste Java jezgre obuhvaća geometriju, pogreške, starost, neslaganje izvora, položaj antene, grupne pakete i šifriranje. Parser izvora nije zamjena za Android build. CI uključuje Android emulator smoke test spremanja grupnog ključa, QR dijaloga, uvoza pozivnice i početnog postupka. Fizička radio-kompatibilnost mora se provjeriti odvojeno. Vizualni prikaz provjeren je na snimci stvarnog Android WebViewa. Cloud pregled ostao je mrežno blokiran. Ponovljeni CI UI testovi imaju nestabilan fokus prozora; uzrok još nije potvrđen. Isporučeni APK je iz uspješne izrade s tri prošla Android testa i istim produkcijskim izvorima kao main; vidi design-qa.md.
 
 Grupni ključ spremljen je pomoću Android Keystorea; sadržaj GATT-a šifriran AES-GCM-om. Koordinate i UWB ključevi sesije ne spremaju se u datoteke ili logove. Svaki član koji posjeduje grupni ključ ima pristup grupnim podacima. Prisutnost hardvera i imena/modeli iz profila nisu sigurnosna atestacija. Detalji su u Help-u i docs/UWB_GPS.md.
