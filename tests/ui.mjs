@@ -1,6 +1,6 @@
 import {createRequire} from 'node:module';import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
 class Element{constructor(){this.textContent='';this.hidden=false;this.children=[];this.dataset={};this.classList={toggle(){}};this.style={setProperty(){}};}append(...v){this.children.push(...v);}replaceChildren(){this.children=[];}setAttribute(){}getContext(){return {};}}
-const ids=['scope','badge','event','status','start','demo','version','gps','hardware','groupInfo','pingTarget','scale','members','radarPage','groupPage','pingPage','mailStatus','pingLabel','nearby','nearStatus'];const elements=Object.fromEntries(ids.map(id=>[id,new Element()]));const tabs=['radar','group','ping'].map(tab=>Object.assign(new Element(),{dataset:{tab}}));let click;let sent=[];
+const ids=['scope','badge','event','status','start','demo','version','gps','hardware','groupInfo','pingTarget','scale','members','radarPage','groupPage','pingPage','mailStatus','pingLabel','nearby','nearStatus','awareStatus','connection','findLabel'];const elements=Object.fromEntries(ids.map(id=>[id,new Element()]));const tabs=['radar','group','ping'].map(tab=>Object.assign(new Element(),{dataset:{tab}}));let click;let sent=[];
 const ops=[];elements.scope.clientWidth=400;elements.scope.getContext=()=>new Proxy({},{get:(o,key)=>o[key]??((...args)=>ops.push([key,...args])),set:(o,k,v)=>{o[k]=v;return true;}});let scheduled;let clock=1000;
 const document={getElementById:id=>elements[id],createElement:()=>new Element(),querySelectorAll:()=>tabs,addEventListener:(event,fn)=>{if(event==='click')click=fn;}};
 const context=vm.createContext({document,window:{Phoenix:{action:(a,v)=>sent.push([a,v])},scrollTo(){}},matchMedia:()=>({matches:false}),performance:{now:()=>clock},requestAnimationFrame:fn=>{scheduled=fn;return 0;},cancelAnimationFrame(){},console});
@@ -36,3 +36,5 @@ const html=fs.readFileSync('app/src/main/assets/ui/index.html','utf8'),script=fs
 const htmlIds=new Set([...html.matchAll(/id="([^"]+)"/g)].map(m=>m[1]));
 for(const match of script.matchAll(/\$\('([^']+)'\)/g))assert.ok(htmlIds.has(match[1]),'Missing packaged HTML binding: '+match[1]);
 console.log('PASS: packaged HTML and UI script bindings');
+
+state({running:false});assert.equal(elements.findLabel.textContent,"POKRENI I ODABERI OSOBU");state({running:true});assert.equal(elements.findLabel.textContent,"ODABERI OSOBU");state({running:true,selectedName:"Vlado"});assert.equal(elements.findLabel.textContent,"PROMIJENI OSOBU");console.log("PASS: connection vs person selection semantics");

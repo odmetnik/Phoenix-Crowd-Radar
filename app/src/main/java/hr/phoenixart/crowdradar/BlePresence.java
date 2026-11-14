@@ -35,7 +35,9 @@ final class BlePresence {
         }
         @Override public void onScanFailed(int code) { handler.post(() -> { stop(); listener.status("BLE skeniranje nije uspjelo: " + code); }); }
     };
-    void start(byte[] key) {
+    boolean running(){return running;}
+    void start(byte[] key){start(key,new SecureRandom().nextInt());}
+    void start(byte[] key,int stableSession) {
         stop();
         BluetoothManager manager = context.getSystemService(BluetoothManager.class);
         BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
@@ -45,7 +47,7 @@ final class BlePresence {
             if(location!=null&&!location.isLocationEnabled()){listener.status("Uključi Lokaciju u brzim postavkama telefona za BLE skeniranje. GPS dijeljenje ostaje isključeno.");return;}
             advertiser = adapter.getBluetoothLeAdvertiser(); scanner = adapter.getBluetoothLeScanner();
             if (advertiser == null || scanner == null) { listener.status("Telefon ne podržava potrebno BLE oglašavanje."); return; }
-            secret = key.clone(); service = new ParcelUuid(Presence.service(key)); sessionId = new SecureRandom().nextInt(); running = true;
+            secret = key.clone(); service = new ParcelUuid(Presence.service(key)); sessionId = stableSession; running = true;
             scanner.startScan(Collections.singletonList(new ScanFilter.Builder().setServiceUuid(service).build()),
                 new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(), scanning);
             advertise();

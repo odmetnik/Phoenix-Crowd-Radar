@@ -32,13 +32,8 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     static final int BG = Color.rgb(5,11,19), PANEL = Color.rgb(10,24,37), CYAN = Color.rgb(48,228,244),
         GREEN = Color.rgb(118,245,172), AMBER = Color.rgb(255,192,99), MUTED = Color.rgb(130,159,179);
     final Handler handler = new Handler(Looper.getMainLooper());
-    final Map<Integer, Peer> peers = new LinkedHashMap<>();
-    byte[] groupKey;
+    RadarEngine engine;
     GroupStore groupStore;
-    ProfileLink profiles;
-    GpsLocator gps;
-    UwbLocator uwb;
-    Integer selectedSession;
     long headingAt,postureAt;
     double backHorizontal;
     int displayRotation;
@@ -47,28 +42,22 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     boolean hadCompassAccuracy;
     String wireProblem="";
     NumberPairing pairing;
-    NearbyLink nearby;ArOverlay ar;boolean nearWanted=true;
-    DeviceProfile own;
-    String groupName;
-    long groupRevision;
+    ArOverlay ar;boolean findPending;
     int pendingPairAction;
-    BlePresence ble;
-    boolean demo, searching, visible;
+    boolean demo, visible;
     Float heading;
     SensorManager sensors;
     TextView status, groupLabel, memberLabel, hardware;
     LinearLayout memberList;
     Button searchButton, demoButton;
     Dashboard dashboard;
-    final hr.phoenixart.crowdradar.core.ShortMessages messages=new hr.phoenixart.crowdradar.core.ShortMessages();
     final hr.phoenixart.crowdradar.core.MotionState motion=new hr.phoenixart.crowdradar.core.MotionState();
-    final float[] gravity=new float[3];long accelStarted;int motionSensorType;boolean gravityReady;String mailStatus="";int unreadMessages;
-    long pingId,pingAt; int pingTarget;
+    final float[] gravity=new float[3];long accelStarted;int motionSensorType;boolean gravityReady;
     String selected;
     static final String[] REQUIRED = { Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_ADVERTISE,
         Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION };
     final ActivityResultLauncher<ScanOptions> qrScanner=registerForActivityResult(new ScanContract(),result->{
-        if(result.getContents()!=null){if(receiveInvite(result.getContents()))toggleSearch();else status.setText("Neispravna QR pozivnica.");}renderDashboard();
+        if(result.getContents()!=null){if(receiveInvite(result.getContents()))toggleSearch();else setStatus("Neispravna QR pozivnica.");}renderDashboard();
     });
     static class Peer {
         int id; double rssi, baseline; long seen; String alias; DeviceProfile profile;
@@ -79,62 +68,16 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         super.onCreate(saved);
         getWindow().setStatusBarColor(BG); getWindow().setNavigationBarColor(BG);
         groupStore = new GroupStore(this);
-        try { groupKey = groupStore.load(); } catch (Exception e) { groupKey = null; }
-        gps=new GpsLocator(this);uwb=new UwbLocator(this);
-        own=DeviceProfile.local(this);
-        groupName=getSharedPreferences("groupInfo",0).getString("name","Interliber");
-        groupRevision=getSharedPreferences("groupInfo",0).getLong("revision",0);
-        profiles=new ProfileLink(this,(id,profile,name,revision)->{
-            Peer peer=peers.get(id);if(peer==null)return;peer.profile=profile;peer.alias=profile.name;
-            if(revision>groupRevision&&!name.trim().isEmpty()&&name.length()<=40){groupName=name;groupRevision=revision;saveGroupInfo();updateGroup();}
-        });
-        profiles.stateSupplier=()->{JSONObject state=new JSONObject();try{JSONObject g=gps.wire();if(g!=null)state.put("g",g);JSONObject u=uwb.wire();if(u.length()>0)state.put("u",u);if(pingId!=0&&SystemClock.elapsedRealtime()-pingAt<10000)state.put("p",new JSONObject().put("id",pingId).put("target",pingTarget));}catch(Exception ignored){}return state;};
-        profiles.stateListener=(id,data,latency)->{
-            Peer peer=peers.get(id);if(peer==null)return;peer.stateAt=SystemClock.elapsedRealtime();peer.hasGeo=false;
-            JSONObject g=data.optJSONObject("g");
-            if(g!=null)try{double lat=g.getDouble("la"),lon=g.getDouble("lo"),error=g.getDouble("ac");long age=Navigation.receivedFixAge(g.getLong("age"),latency,0);
-                if(Navigation.validFix(lat,lon,error,age)){peer.lat=lat;peer.lon=lon;peer.error=error;peer.fixAge=age;peer.geoAt=SystemClock.elapsedRealtime();peer.hasGeo=true;}
-            }catch(Exception ignored){}
-            uwb.remote(id,data.optJSONObject("u"));
-            JSONObject ping=data.optJSONObject("p");
-            if(ping!=null&&ping.optInt("target") == ble.sessionId()&&ping.optLong("id")!=0&&ping.optLong("id")!=peer.lastPing){
-                peer.lastPing=ping.optLong("id");signalPing(peer.alias);
-            }
-        };
-        profiles.mailSupport=(id,supported)->{Peer peer=peers.get(id);if(peer!=null)peer.canMessage=supported;};
-        profiles.mailSupplier=this::messageWire;
-        profiles.mailListener=(id,data,latency)->receiveMessages(id,data);
-        nearby=new NearbyLink(this,new NearbyLink.Listener(){
-            public JSONObject snapshot()throws Exception{return new JSONObject().put("profile",own.json()).put("group",groupName).put("revision",groupRevision).put("state",profiles.stateSupplier.get()).put("mail",messageWire());}
-            public void received(int id,JSONObject frame,long latency){
-                if(!searching)return;
-                try{DeviceProfile profile=DeviceProfile.parse(frame.getJSONObject("profile"));Peer peer=peers.get(id);
-                    if(peer==null){if(peers.size()>=24)return;peer=new Peer(id,-127);peers.put(id,peer);}
-                    profiles.listener.profile(id,profile,frame.optString("group"),frame.optLong("revision"));
-                    profiles.stateListener.state(id,frame.getJSONObject("state"),latency);receiveMessages(id,frame.getJSONObject("mail"));
-                }catch(Exception ignored){}
-            }
-        });ar=new ArOverlay(this);
+        engine=((RadarApp)getApplication()).engine;ar=new ArOverlay(this);
         pairing=new NumberPairing(this,new NumberPairing.Listener(){
             public String invitation(){return invitationToken();}
             public boolean received(String token){return receiveInvite(token);}
-            public void status(String message){status.setText(message);}
+            public void status(String message){setStatus(message);}
         });
-        sensors = getSystemService(SensorManager.class);
-        ble = new BlePresence(this, new BlePresence.Listener() {
-            public void peer(int id, int rssi, BluetoothDevice device) {
-                if (demo || !searching) return;
-                Peer peer = peers.get(id);
-                if (peer == null) { if (peers.size() >= 24) return; peer = new Peer(id,rssi); peers.put(id,peer); }
-                peer.rssi = RadarMath.smooth(peer.rssi, rssi); peer.seen = SystemClock.elapsedRealtime(); profiles.fetch(id,device);
-            }
-            public void status(String message) {
-                status.setText(message);
-                if (!message.startsWith("Tražim")){if(nearby.active){ble.stop();profiles.stop();}else stop();}
-            }
-        });
+        sensors=getSystemService(SensorManager.class);
         build();
     }
+    void setStatus(CharSequence text){engine.note=text.toString();if(status!=null)status.setText(text);}
     int dp(float n) { return (int)(n * getResources().getDisplayMetrics().density + .5f); }
     TextView label(String text, int size, int color) {
         TextView v = new TextView(this); v.setText(text); v.setTextSize(size); v.setTextColor(color);
@@ -160,8 +103,8 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             case "radar":toggleSearch();break;
             case "demo":toggleDemo();break;
             case "create":createGroup(false,null);break;
-            case "rename":if(groupKey==null&&!demo)createGroup(false,null);else editGroupName();break;
-            case "invite":if(groupKey==null)createGroup(false,this::invite);else invite();break;
+            case "rename":if(engine.groupKey==null&&!demo)createGroup(false,null);else editGroupName();break;
+            case "invite":if(engine.groupKey==null)createGroup(false,this::invite);else invite();break;
             case "scan":scanInvite();break;
             case "host":startPair(true);break;
             case "join":startPair(false);break;
@@ -170,9 +113,9 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             case "profile":profileMenu();break;
             case "help":showHelp();break;
             case "gps":toggleGps();break;
-            case "uwbStop":uwb.stop();status.setText("UWB zaustavljen.");break;
+            case "uwbStop":engine.uwb.stop();engine.uwbAttempts=3;setStatus("UWB zaustavljen.");break;
             case "select":try{selectPeer(Integer.parseInt(value));}catch(NumberFormatException ignored){}break;
-            case "find":if(!searching){toggleSearch();}else choosePeer();break;
+            case "find":if(!engine.searching){findPending=true;toggleSearch();}else choosePeer();break;
             case "ping":sendPing();break;
             case "message":composeMessage();break;
             case "inbox":showMessages();break;
@@ -184,28 +127,28 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     void renderDashboard(){
         if(dashboard==null)return;
         try{
-            JSONObject data=new JSONObject().put("group",groupName).put("hasGroup",groupKey!=null).put("own",own.name)
-                .put("demo",demo).put("running",searching).put("status",status.getText()).put("version",appVersion())
-                .put("heading",heading==null?JSONObject.NULL:heading).put("gps",gps.sharing).put("hardware",hardware.getText())
-                .put("nearby",nearWanted).put("nearStatus",nearby.status).put("mailStatus",mailSummary()).put("unread",unreadMessages).put("motion",motionSummary())
-                .put("selected",selectedSession==null?JSONObject.NULL:selectedSession);
+            JSONObject data=new JSONObject().put("group",engine.groupName).put("hasGroup",engine.groupKey!=null).put("own",engine.own.name)
+                .put("demo",demo).put("running",engine.searching).put("status",engine.note).put("version",appVersion())
+                .put("heading",heading==null?JSONObject.NULL:heading).put("gps",engine.gps.sharing).put("hardware",hardware.getText())
+                .put("transport",engine.searching?(engine.ble.running()?"BLE radi":"BLE ponovno povezivanje"):"Povezivanje isključeno").put("aware",engine.aware.status).put("starting",engine.starting).put("nearby",engine.nearWanted).put("nearStatus",engine.nearby.status).put("mailStatus",mailSummary()).put("unread",engine.unreadMessages).put("motion",motionSummary())
+                .put("selected",engine.selectedSession==null?JSONObject.NULL:engine.selectedSession);
             org.json.JSONArray members=new org.json.JSONArray();
             if(demo){members.put(new JSONObject().put("id",1).put("name","Marko").put("source","UWB").put("meters",12).put("angle",50));
                 members.put(new JSONObject().put("id",2).put("name","Ana").put("source","GPS").put("meters",38).put("angle",224));
                 members.put(new JSONObject().put("id",3).put("name","Ivan").put("source","BLE").put("meters",JSONObject.NULL).put("angle",JSONObject.NULL));}
-            else for(Peer peer:peers.values()){
+            else for(Peer peer:engine.peers.values()){
                 Estimate e=estimate(peer);boolean stale=!peerFresh(peer);
                 members.put(new JSONObject().put("id",peer.id).put("name",peer.alias).put("source",e.distanceSource.replace(" ~",""))
-                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale).put("link",nearby.live(peer.id)?"Nearby BT/Wi-Fi":peer.canMessage?"BLE GATT":"BLE oglas").put("direction",e.directionSource).put("note",e.note));
+                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale).put("age",Math.max(0,SystemClock.elapsedRealtime()-Math.max(peer.seen,peer.stateAt))/1000).put("link",engine.links(peer)).put("direction",e.directionSource).put("note",e.note));
             }
-            Peer target=selectedSession==null?null:peers.get(selectedSession);data.put("selectedName",target==null?"":target.alias);
+            Peer target=engine.selectedSession==null?null:engine.peers.get(engine.selectedSession);data.put("selectedName",target==null?"":target.alias);
             data.put("members",members);dashboard.render(data);
         }catch(org.json.JSONException ignored){}
     }
     void createGroup(boolean startAfter,Runnable after){
-        EditText input=new EditText(this);input.setText(groupName);input.setSelectAllOnFocus(true);input.setSingleLine();input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(groupKey==null?"Kreiraj grupu":"Zamijeni postojeću grupu")
-            .setMessage(groupKey==null?"Upiši naziv događaja ili grupe.":"Nova grupa zamjenjuje grupu na ovom telefonu. Kolege će trebati novu pozivnicu.")
+        EditText input=new EditText(this);input.setText(engine.groupName);input.setSelectAllOnFocus(true);input.setSingleLine();input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(engine.groupKey==null?"Kreiraj grupu":"Zamijeni postojeću grupu")
+            .setMessage(engine.groupKey==null?"Upiši naziv događaja ili grupe.":"Nova grupa zamjenjuje grupu na ovom telefonu. Kolege će trebati novu pozivnicu.")
             .setView(input).setPositiveButton("Kreiraj",null).setNegativeButton("Odustani",null).create();
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
             String name=input.getText().toString().trim();if(name.isEmpty()){input.setError("Upiši naziv grupe");return;}
@@ -223,83 +166,61 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     }
     void scanInvite(){stop();pairing.stop();demo=false;qrScanner.launch(new ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Skeniraj Phoenix Crowd Radar pozivnicu").setBeepEnabled(false).setOrientationLocked(false));}
     void leaveGroup(){new AlertDialog.Builder(this).setMessage("Napustiti grupu i zaustaviti radar?").setPositiveButton("Napusti",(d,w)->{
-        stop();pairing.stop();messages.clear();mailStatus="";unreadMessages=0;demo=false;groupStore.clear();if(groupKey!=null)Arrays.fill(groupKey,(byte)0);groupKey=null;peers.clear();selectedSession=null;updateGroup();status.setText("Napustio si grupu.");refreshMembers();
+        stop();pairing.stop();engine.messages.clear();engine.mailStatus="";engine.unreadMessages=0;demo=false;groupStore.clear();if(engine.groupKey!=null)Arrays.fill(engine.groupKey,(byte)0);engine.groupKey=null;engine.peers.clear();engine.selectedSession=null;updateGroup();setStatus("Napustio si grupu.");refreshMembers();
     }).setNegativeButton("Odustani",null).show();}
     void choosePeer(){
-        if(peers.isEmpty()){status.setText("Radar radi. Čekam kolege iz iste grupe.");return;}
-        Peer[] list=peers.values().toArray(new Peer[0]);String[] names=new String[list.length];for(int i=0;i<list.length;i++)names[i]=list[i].alias;
+        if(engine.peers.isEmpty()){setStatus("Radar radi. Čekam kolege iz iste grupe.");return;}
+        Peer[] list=engine.peers.values().toArray(new Peer[0]);String[] names=new String[list.length];for(int i=0;i<list.length;i++)names[i]=list[i].alias;
         new AlertDialog.Builder(this).setTitle("Traži osobu").setItems(names,(d,i)->selectPeer(list[i].id)).setNegativeButton("Zatvori",null).show();
     }
     void selectPeer(int id){
-        if(demo){status.setText("DEMO • odabir je simuliran.");return;}
-        Peer peer=peers.get(id);if(peer==null)return;selectedSession=id;profiles.focus=id;if(nearWanted)nearby.focus(id);renderDashboard();
-        String details=(peer.seen>0?"BLE signal: "+Math.round(peer.rssi)+" dBm • "+RadarMath.band(peer.rssi):"BLE RSSI nije izmjeren")+"\n"+(nearby.live(peer.id)?"Dodatna Nearby BT/Wi-Fi veza aktivna":"Dodatna Nearby veza nije aktivna")+"\n"+(peer.profile==null?"Profil još nije razmijenjen.":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps));
-        new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\n"+details+"\n\nZa UWB odaberite jedno drugo na oba telefona. Držite telefone uspravno u portretu.")
+        if(demo){setStatus("DEMO • odabir je simuliran.");return;}
+        Peer peer=engine.peers.get(id);if(peer==null)return;engine.focus(id);renderDashboard();
+        String details=(peer.seen>0?"Zadnji BLE signal: "+Math.round(peer.rssi)+" dBm • "+RadarMath.band(peer.rssi):"BLE RSSI nije izmjeren")+"\n"+engine.links(peer)+"\n"+(peer.profile==null?"Profil još nije razmijenjen.":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps));
+        new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\n"+details+"\n\nUWB se pokušava automatski za odabranu osobu. Držite telefone uspravno u portretu. Ručni pokušaj dostupan je dolje.")
             .setPositiveButton("Traži UWB",(d,w)->{startUwb(peer);renderDashboard();}).setNeutralButton("Pošalji ping",(d,w)->{sendPing();renderDashboard();}).setNegativeButton("Zatvori",null).show();
     }
     void sendPing(){
-        Peer peer=selectedSession==null?null:peers.get(selectedSession);
-        if(demo||!searching||peer==null||peer.profile==null||!peerFresh(peer)){status.setText("Pokreni radar i odaberi aktivnog člana s razmijenjenim profilom.");return;}
-        pingTarget=peer.id;pingId=new SecureRandom().nextInt(Integer.MAX_VALUE)+1L;pingAt=SystemClock.elapsedRealtime();status.setText("Ping pripremljen za "+peer.alias+". Dostava ovisi o aktivnoj vezi; nema potvrde primitka.");
-    }
-    JSONObject messageWire(){
-        JSONObject result=new JSONObject();
-        try{
-            org.json.JSONArray acknowledgements=new org.json.JSONArray();for(String id:messages.acknowledgements())acknowledgements.put(id);result.put("acks",acknowledgements);
-            hr.phoenixart.crowdradar.core.ShortMessages.Entry entry=messages.pending(SystemClock.elapsedRealtime());
-            if(entry!=null)result.put("msg",new JSONObject().put("id",entry.id).put("to",entry.peer).put("text",entry.text));
-        }catch(org.json.JSONException ignored){}return result;
-    }
-    void receiveMessages(int peerId,JSONObject data){
-        Peer peer=peers.get(peerId);if(peer==null||!searching)return;long now=SystemClock.elapsedRealtime();
-        org.json.JSONArray ack=data.optJSONArray("acks");if(ack!=null)for(int i=0;i<Math.min(6,ack.length());i++){if(messages.acknowledge(peerId,ack.optString(i),now))mailStatus="Potvrđen primitak od "+peer.alias+".";}
-        JSONObject incoming=data.optJSONObject("msg");
-        if(incoming!=null){
-            hr.phoenixart.crowdradar.core.ShortMessages.Entry accepted=messages.receive(peerId,ble.sessionId(),incoming.optInt("to",ble.sessionId()^1),incoming.optString("id"),peer.alias,incoming.optString("text"),now);
-            if(accepted!=null){unreadMessages++;mailStatus="Poruka od "+peer.alias+": "+accepted.text;Toast.makeText(this,mailStatus,Toast.LENGTH_LONG).show();}
-        }
+        Peer peer=engine.selectedSession==null?null:engine.peers.get(engine.selectedSession);
+        if(demo||!engine.searching||peer==null||peer.profile==null||!peerFresh(peer)){setStatus("Pokreni radar i odaberi aktivnog člana s razmijenjenim profilom.");return;}
+        engine.pingTarget=peer.id;engine.pingId=new SecureRandom().nextInt(Integer.MAX_VALUE)+1L;engine.pingAt=SystemClock.elapsedRealtime();setStatus("Ping pripremljen za "+peer.alias+". Dostava ovisi o aktivnoj vezi; nema potvrde primitka.");
     }
     String mailSummary(){
-        java.util.List<hr.phoenixart.crowdradar.core.ShortMessages.Entry> history=messages.history(SystemClock.elapsedRealtime());
-        hr.phoenixart.crowdradar.core.ShortMessages.Entry pending=messages.pending(SystemClock.elapsedRealtime());
+        java.util.List<hr.phoenixart.crowdradar.core.ShortMessages.Entry> history=engine.messages.history(SystemClock.elapsedRealtime());
+        hr.phoenixart.crowdradar.core.ShortMessages.Entry pending=engine.messages.pending(SystemClock.elapsedRealtime());
         String last=pending!=null?"ČEKA POTVRDU • "+pending.name:history.isEmpty()?"Još nema poruka.":history.get(history.size()-1).state+" • "+history.get(history.size()-1).name;
-        return (unreadMessages>0?"NOVIH PORUKA: "+unreadMessages+"\n":"")+last+(mailStatus.isEmpty()?"":"\n"+mailStatus);
+        return (engine.unreadMessages>0?"NOVIH PORUKA: "+engine.unreadMessages+"\n":"")+last+(engine.mailStatus.isEmpty()?"":"\n"+engine.mailStatus);
     }
     void composeMessage(){
-        if(demo||!searching){status.setText("Za poruke pokreni stvarni radar.");return;}
-        if(messages.pending(SystemClock.elapsedRealtime())!=null){mailStatus="Jedna poruka već čeka potvrdu (najviše 60 s).";return;}
-        Peer peer=selectedSession==null?null:peers.get(selectedSession);
+        if(demo||!engine.searching){setStatus("Za poruke pokreni stvarni radar.");return;}
+        if(engine.messages.pending(SystemClock.elapsedRealtime())!=null){engine.mailStatus="Jedna poruka već čeka potvrdu (najviše 60 s).";return;}
+        Peer peer=engine.selectedSession==null?null:engine.peers.get(engine.selectedSession);
         if(peer==null){
-            java.util.List<Peer> candidates=new ArrayList<>();for(Peer p:peers.values())if(canMessage(p)&&peerFresh(p))candidates.add(p);
-            if(candidates.isEmpty()){mailStatus="Nema člana s aktivnom podrškom za poruke. Na oba telefona treba verzija 0.5 ili novija.";return;}
+            java.util.List<Peer> candidates=new ArrayList<>();for(Peer p:engine.peers.values())if(canMessage(p)&&peerFresh(p))candidates.add(p);
+            if(candidates.isEmpty()){engine.mailStatus="Nema člana s aktivnom podrškom za poruke. Na oba telefona treba verzija 0.5 ili novija.";return;}
             String[] names=new String[candidates.size()];for(int i=0;i<names.length;i++)names[i]=candidates.get(i).alias;
-            new AlertDialog.Builder(this).setTitle("Poruka za člana").setItems(names,(d,i)->{selectedSession=candidates.get(i).id;profiles.focus=selectedSession;if(nearWanted)nearby.focus(selectedSession);composeMessage();}).setNegativeButton("Odustani",null).show();return;
+            new AlertDialog.Builder(this).setTitle("Poruka za člana").setItems(names,(d,i)->{engine.selectedSession=candidates.get(i).id;engine.focus(engine.selectedSession);composeMessage();}).setNegativeButton("Odustani",null).show();return;
         }
-        if(!canMessage(peer)||!peerFresh(peer)){mailStatus="Odabrani član nema aktivnu podatkovnu vezu za poruke. Oba telefona trebaju 0.5 ili noviju verziju.";return;}
+        if(!canMessage(peer)||!peerFresh(peer)){engine.mailStatus="Odabrani član nema aktivnu podatkovnu vezu za poruke. Oba telefona trebaju 0.5 ili noviju verziju.";return;}
         EditText input=new EditText(this);input.setSingleLine();input.setHint("Kratka poruka — do 48 znakova");input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(48)});
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Poruka: "+peer.alias).setMessage("Šifrirani Bluetooth • bez interneta. Potvrda znači primitak u aplikaciji, ne da je osoba pročitala poruku.")
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Poruka: "+peer.alias).setMessage("Šifrirani BLE / Nearby / Wi-Fi Aware • bez interneta. Potvrda znači primitak u aplikaciji, ne da je osoba pročitala poruku.")
             .setView(input).setPositiveButton("Pošalji",null).setNegativeButton("Odustani",null).create();
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-            if(!searching||!peerFresh(peer)||!canMessage(peer)){input.setError("Član više nema aktivnu vezu.");return;}
-            try{messages.send(peer.id,peer.alias,input.getText().toString(),SystemClock.elapsedRealtime());profiles.focus=peer.id;mailStatus="";dialog.dismiss();renderDashboard();}
+            if(!engine.searching||!peerFresh(peer)||!canMessage(peer)){input.setError("Član više nema aktivnu vezu.");return;}
+            try{engine.messages.send(peer.id,peer.alias,input.getText().toString(),SystemClock.elapsedRealtime());engine.profiles.focus=peer.id;engine.mailStatus="";dialog.dismiss();renderDashboard();}
             catch(IllegalArgumentException|IllegalStateException e){input.setError(e.getMessage());}
         }));dialog.show();
     }
     void showMessages(){
-        unreadMessages=0;java.util.List<hr.phoenixart.crowdradar.core.ShortMessages.Entry> entries=messages.history(SystemClock.elapsedRealtime());StringBuilder text=new StringBuilder();
+        engine.unreadMessages=0;java.util.List<hr.phoenixart.crowdradar.core.ShortMessages.Entry> entries=engine.messages.history(SystemClock.elapsedRealtime());StringBuilder text=new StringBuilder();
         for(hr.phoenixart.crowdradar.core.ShortMessages.Entry e:entries)text.append(e.outgoing?"ZA ":"OD ").append(e.name).append(" • ").append(e.state).append("\n").append(e.text).append("\n\n");
         TextView view=label(text.length()==0?"Još nema poruka.":text.toString(),14,Color.WHITE);view.setPadding(dp(18),dp(12),dp(18),dp(20));view.setTextIsSelectable(true);ScrollView scroll=new ScrollView(this);scroll.addView(view);
         new AlertDialog.Builder(this).setTitle("Poruke • samo u memoriji").setView(scroll).setPositiveButton("Zatvori",null).show();renderDashboard();
     }
-    void signalPing(String name){
-        status.setText("PING od: "+name);
-        android.media.ToneGenerator tone=new android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION,80);
-        tone.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2,500);handler.postDelayed(tone::release,650);
-    }
     String appVersion(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(PackageManager.NameNotFoundException e){return "dev";}}
-    void updateGroup() { groupLabel.setText(groupKey == null ? "NEMA GRUPE • OFFLINE" : groupName+"  ✎  •  "+own.name); }
-    void saveGroupInfo(){getSharedPreferences("groupInfo",0).edit().putString("name",groupName).putLong("revision",groupRevision).apply();}
-    void refreshHardware(){hardware.setText("TVOJ UREĐAJ: "+own.model+"\nPodržano: "+Capabilities.supported(own.caps)+"\n"+gps.state+"\n"+uwb.status+"\n"+nearby.status+"\n"+motionSummary()+(motion.fresh(SystemClock.elapsedRealtime())?String.format(Locale.ROOT," • procjena RMS %.2f m/s²",motion.rms()):""));}
+    void updateGroup() { groupLabel.setText(engine.groupKey == null ? "NEMA GRUPE • OFFLINE" : engine.groupName+"  ✎  •  "+engine.own.name); }
+    void saveGroupInfo(){getSharedPreferences("groupInfo",0).edit().putString("name",engine.groupName).putLong("revision",engine.groupRevision).apply();}
+    void refreshHardware(){hardware.setText("TVOJ UREĐAJ: "+engine.own.model+"\nPodržano: "+Capabilities.supported(engine.own.caps)+"\n"+engine.gps.state+"\n"+engine.uwb.status+"\n"+engine.nearby.status+"\n"+engine.aware.status+"\n"+motionSummary()+(motion.fresh(SystemClock.elapsedRealtime())?String.format(Locale.ROOT," • procjena RMS %.2f m/s²",motion.rms()):""));}
     void showHelp(){
         try(java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(getAssets().open("help.txt"),StandardCharsets.UTF_8))){
             StringBuilder text=new StringBuilder();String line;while((line=reader.readLine())!=null)text.append(line).append('\n');
@@ -314,94 +235,98 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
                 ScrollView scroll=new ScrollView(this);scroll.addView(view);
                 new AlertDialog.Builder(this).setTitle(titles[which]).setView(scroll).setPositiveButton("Zatvori",null).setNeutralButton("Teme",(x,y)->showHelp()).show();
             }).setNegativeButton("Zatvori",null).show();
-        }catch(java.io.IOException e){status.setText("Pomoć nije dostupna u instalaciji.");}
+        }catch(java.io.IOException e){setStatus("Pomoć nije dostupna u instalaciji.");}
     }
-    boolean peerFresh(Peer peer){return nearby.live(peer.id)||(peer.seen>0&&SystemClock.elapsedRealtime()-peer.seen<=12000);}
-    boolean canMessage(Peer peer){return peer.canMessage||nearby.live(peer.id);}
+    boolean peerFresh(Peer peer){return engine.fresh(peer);}
+    boolean canMessage(Peer peer){return engine.canMessage(peer);}
     void toggleNearby(){
-        if(nearby.active){nearWanted=false;nearby.stop();status.setText("Dodatna Nearby veza isključena. BLE ostaje aktivan.");return;}
-        if(!searching){status.setText("Prvo pokreni radar, zatim uključi BT + Wi-Fi vezu.");return;}
+        if(engine.nearby.active){engine.nearWanted=false;engine.nearby.stop();setStatus("Dodatna Nearby veza isključena. BLE ostaje aktivan.");return;}
+        if(!engine.searching){setStatus("Prvo pokreni radar, zatim uključi BT + Wi-Fi vezu.");return;}
         if(!pairPermissions()&&Build.VERSION.SDK_INT>=33){requestPermissions(new String[]{Manifest.permission.NEARBY_WIFI_DEVICES},104);return;}
-        nearWanted=true;nearby.start(groupKey,ble.sessionId(),selectedSession);status.setText(nearby.status);
+        engine.nearWanted=true;engine.nearby.start(engine.groupKey,engine.session,engine.selectedSession);setStatus(engine.nearby.status);
     }
     void openAr(){
-        if(demo||!searching){status.setText("AR koristi stvarne članove. Pokreni radar i odaberi osobu.");return;}
+        if(demo||!engine.searching){setStatus("AR koristi stvarne članove. Pokreni radar i odaberi osobu.");return;}
         if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.CAMERA},105);return;}
         ar.show();
     }
     void toggleGps(){
-        if(gps.sharing){gps.stop();gpsButton.setText("UKLJUČI GPS DIJELJENJE");status.setText("GPS dijeljenje isključeno.");return;}
-        if(!searching){status.setText("Prvo pokreni radar, zatim uključi GPS dijeljenje.");return;}
-        gps.start();gpsButton.setText("ISKLJUČI GPS DIJELJENJE");status.setText(gps.state);
+        if(engine.gps.sharing){engine.gps.stop();gpsButton.setText("UKLJUČI GPS DIJELJENJE");setStatus("GPS dijeljenje isključeno.");return;}
+        if(!engine.searching){setStatus("Prvo pokreni radar, zatim uključi GPS dijeljenje.");return;}
+        engine.gps.start();gpsButton.setText("ISKLJUČI GPS DIJELJENJE");setStatus(engine.gps.state);
     }
     void startUwb(Peer peer){
-        if(!searching||peer.profile==null){status.setText("Pokreni radar i pričekaj razmjenu profila.");return;}
-        selectedSession=peer.id;profiles.focus=peer.id;
-        if((own.caps&peer.profile.caps&Capabilities.UWB)==0){status.setText("Oba telefona moraju imati UWB. GPS/BLE ostaju dostupni.");return;}
-        if(!uwb.permitted()){requestPermissions(new String[]{Manifest.permission.UWB_RANGING},103);return;}
-        uwb.start(ble.sessionId(),peer.id,own,peer.profile);status.setText(uwb.status);
+        if(!engine.searching||peer.profile==null){setStatus("Pokreni radar i pričekaj razmjenu profila.");return;}
+        engine.focus(peer.id);
+        if((engine.own.caps&peer.profile.caps&Capabilities.UWB)==0){setStatus("Oba telefona moraju imati UWB. GPS/BLE ostaju dostupni.");return;}
+        if(!engine.uwb.permitted()){requestPermissions(new String[]{Manifest.permission.UWB_RANGING},103);return;}
+        engine.startUwb(peer);setStatus(engine.uwb.status);
     }
     void profileMenu(){
-        EditText input=new EditText(this);input.setText(own.name);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
-        new AlertDialog.Builder(this).setTitle("Moje ime / uređaj").setMessage(own.model+"\nPodržano: "+Capabilities.supported(own.caps)+"\n\nOvo je podrška hardvera, ne potvrda aktivnog preciznog mjerenja.")
+        EditText input=new EditText(this);input.setText(engine.own.name);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
+        new AlertDialog.Builder(this).setTitle("Moje ime / uređaj").setMessage(engine.own.model+"\nPodržano: "+Capabilities.supported(engine.own.caps)+"\n\nOvo je podrška hardvera, ne potvrda aktivnog preciznog mjerenja.")
             .setView(input).setPositiveButton("Spremi",(d,w)->{String name=input.getText().toString().trim();if(name.isEmpty())return;
-                getSharedPreferences("identity",0).edit().putString("name",name).apply();own=DeviceProfile.local(this);profiles.own=own;updateGroup();refreshHardware();})
+                getSharedPreferences("identity",0).edit().putString("name",name).apply();engine.own=DeviceProfile.local(this);engine.profiles.engine.own=engine.own;updateGroup();refreshHardware();})
             .setNegativeButton("Odustani",null).show();
     }
     void editGroupName(){
-        EditText input=new EditText(this);input.setText(groupName);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
+        EditText input=new EditText(this);input.setText(engine.groupName);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
         new AlertDialog.Builder(this).setTitle("Naziv grupe / događaja").setView(input).setPositiveButton("Spremi",(d,w)->{
-            String name=input.getText().toString().trim();if(name.isEmpty())return;groupName=name;groupRevision=Math.max(System.currentTimeMillis(),groupRevision+1);saveGroupInfo();updateGroup();
+            String name=input.getText().toString().trim();if(name.isEmpty())return;engine.groupName=name;engine.groupRevision=Math.max(System.currentTimeMillis(),engine.groupRevision+1);saveGroupInfo();updateGroup();
         }).setNegativeButton("Odustani",null).show();
     }
-    void stop() { if(ar!=null)ar.close();if(nearby!=null)nearby.stop();messages.stop();pingId=0;searching = false; ble.stop(); if(profiles!=null)profiles.stop();if(gps!=null)gps.stop();if(uwb!=null)uwb.stop();if(gpsButton!=null)gpsButton.setText("UKLJUČI GPS DIJELJENJE"); if (searchButton != null) searchButton.setText("POKRENI RADAR"); }
+    void stop(){if(ar!=null)ar.close();engine.stop();stopService(new Intent(this,RadarService.class));if(gpsButton!=null)gpsButton.setText("UKLJUČI GPS DIJELJENJE");}
     boolean allowed() {
         for (String p : REQUIRED) if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) return false;
         return true;
     }
     void toggleSearch() {
-        if (searching) { stop(); status.setText("Radar zaustavljen."); return; }
-        if (groupKey == null) { firstRun(); return; }
-        boolean askUwb=getPackageManager().hasSystemFeature("android.hardware.uwb")&&!uwb.permitted()&&!getSharedPreferences("identity",0).getBoolean("uwbAsked",false);
-        if (!allowed()||askUwb||(Build.VERSION.SDK_INT>=33&&!getSharedPreferences("identity",0).getBoolean("nearAsked",false))) {
+        if (engine.searching||engine.starting) { stop(); setStatus("Radar zaustavljen."); return; }
+        if (engine.groupKey == null) { firstRun(); return; }
+        boolean askUwb=getPackageManager().hasSystemFeature("android.hardware.uwb")&&!engine.uwb.permitted()&&!getSharedPreferences("identity",0).getBoolean("uwbAsked",false);
+        if (!allowed()||askUwb||(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED&&!getSharedPreferences("identity",0).getBoolean("notifiedAsked",false))||(Build.VERSION.SDK_INT>=33&&!getSharedPreferences("identity",0).getBoolean("nearAsked",false))) {
             ArrayList<String> permissions=new ArrayList<>(Arrays.asList(REQUIRED));
             if(Build.VERSION.SDK_INT>=33&&!getSharedPreferences("identity",0).getBoolean("nearAsked",false)){permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES);getSharedPreferences("identity",0).edit().putBoolean("nearAsked",true).apply();}
+            if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED&&!getSharedPreferences("identity",0).getBoolean("notifiedAsked",false)){permissions.add(Manifest.permission.POST_NOTIFICATIONS);getSharedPreferences("identity",0).edit().putBoolean("notifiedAsked",true).apply();}
             if(askUwb){permissions.add(Manifest.permission.UWB_RANGING);getSharedPreferences("identity",0).edit().putBoolean("uwbAsked",true).apply();}
             requestPermissions(permissions.toArray(new String[0]),101);return;
         }
-        pairing.stop(); demo=false; demoButton.setText("DEMO IZGLEDA"); peers.clear();selectedSession=null; searching=true; searchButton.setText("ZAUSTAVI"); ble.start(groupKey); if(searching){profiles.start(groupKey,ble.sessionId(),own);if(nearWanted&&pairPermissions())nearby.start(groupKey,ble.sessionId(),selectedSession);}
+        pairing.stop();demo=false;engine.starting=true;
+        try{startForegroundService(new Intent(this,RadarService.class));setStatus("Pokrećem automatsko povezivanje i rad uz zaključan ekran…");}
+        catch(RuntimeException e){engine.starting=false;setStatus("Servis nije pokrenut. Ponovno otvori aplikaciju i provjeri dozvole.");}
+
     }
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grants) {
         super.onRequestPermissionsResult(requestCode,permissions,grants);
-        if(requestCode==104){if(pairPermissions()&&searching){nearWanted=true;nearby.start(groupKey,ble.sessionId(),selectedSession);}else status.setText("Nearby dozvola nije odobrena; BLE ostaje aktivan.");return;}
-        if(requestCode==105){if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)openAr();else status.setText("AR treba dopuštenje kamere.");return;}
-        if(requestCode==103){Peer peer=selectedSession==null?null:peers.get(selectedSession);if(uwb.permitted()&&peer!=null)startUwb(peer);else status.setText("UWB dozvola nije odobrena. Koristi GPS/BLE.");return;}
-        if(requestCode==102){if(pairPermissions())startPair(pendingPairAction==1);else status.setText("Dozvole za brojčano uparivanje nisu odobrene.");return;}
+        if(requestCode==104){if(pairPermissions()&&engine.searching){engine.nearWanted=true;engine.nearby.start(engine.groupKey,engine.session,engine.selectedSession);}else setStatus("Nearby dozvola nije odobrena; BLE ostaje aktivan.");return;}
+        if(requestCode==105){if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)openAr();else setStatus("AR treba dopuštenje kamere.");return;}
+        if(requestCode==103){Peer peer=engine.selectedSession==null?null:engine.peers.get(engine.selectedSession);if(engine.uwb.permitted()&&peer!=null)startUwb(peer);else setStatus("UWB dozvola nije odobrena. Koristi GPS/BLE.");return;}
+        if(requestCode==102){if(pairPermissions())startPair(pendingPairAction==1);else setStatus("Dozvole za brojčano uparivanje nisu odobrene.");return;}
         if (requestCode == 101 && allowed()) toggleSearch();
-        else status.setText("Za BLE radar odobri obližnje uređaje i preciznu lokaciju. GPS dijeljenje uključuješ zasebnim gumbom.");
+        else setStatus("Za BLE radar odobri obližnje uređaje i preciznu lokaciju. GPS dijeljenje uključuješ zasebnim gumbom.");
     }
     void toggleDemo() {
-        stop(); demo=!demo; peers.clear(); selected=null;selectedSession=null;
-        status.setText(demo?"DEMO • simulirane osobe i smjerovi; senzori ne lociraju te osobe.":"Demo isključen. Pokreni BLE radar.");
+        stop(); demo=!demo; engine.peers.clear(); selected=null;engine.selectedSession=null;
+        setStatus(demo?"DEMO • simulirane osobe i smjerovi; senzori ne lociraju te osobe.":"Demo isključen. Pokreni BLE radar.");
         demoButton.setText(demo?"ISKLJUČI DEMO":"DEMO IZGLEDA"); refreshMembers(); renderDashboard();
     }
     void groupMenu(){new AlertDialog.Builder(this).setTitle("Grupa").setItems(new String[]{"Kreiraj grupu","QR pozivnica","Skeniraj QR","Dodaj člana brojem","Pridruži se brojem"},(d,i)->dashboardAction(new String[]{"create","invite","scan","host","join"}[i],"")).show();}
     boolean pairPermissions(){if(!allowed())return false;return Build.VERSION.SDK_INT<33||checkSelfPermission(Manifest.permission.NEARBY_WIFI_DEVICES)==PackageManager.PERMISSION_GRANTED;}
     void startPair(boolean host){
-        if(host&&groupKey==null){createGroup(false,()->startPair(true));return;}
+        if(host&&engine.groupKey==null){createGroup(false,()->startPair(true));return;}
         if(!pairPermissions()){
             pendingPairAction=host?1:2;ArrayList<String> permissions=new ArrayList<>(Arrays.asList(REQUIRED));
             if(Build.VERSION.SDK_INT>=33)permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES);requestPermissions(permissions.toArray(new String[0]),102);return;
         }
-        stop();demo=false;peers.clear();refreshMembers();pairing.start(host,groupName+" / "+own.name);
+        stop();demo=false;engine.peers.clear();refreshMembers();pairing.start(host,engine.groupName+" / "+engine.own.name);
     }
     boolean installGroup(byte[] key,String name,long revision) {
-        try {groupStore.save(key);stop();if(groupKey!=null)Arrays.fill(groupKey,(byte)0);groupKey=key;groupName=name;groupRevision=revision;saveGroupInfo();messages.clear();mailStatus="";unreadMessages=0;demo=false;peers.clear();updateGroup();status.setText("Grupa spremljena. Pokreni radar.");refreshMembers();return true;}
-        catch(Exception e){status.setText("Ključ nije spremljen ("+e.getClass().getSimpleName()+"). Grupa nije promijenjena.");return false;}
+        try {groupStore.save(key);stop();if(engine.groupKey!=null)Arrays.fill(engine.groupKey,(byte)0);engine.groupKey=key;engine.groupName=name;engine.groupRevision=revision;saveGroupInfo();engine.messages.clear();engine.mailStatus="";engine.unreadMessages=0;demo=false;engine.peers.clear();updateGroup();setStatus("Grupa spremljena. Pokreni radar.");refreshMembers();return true;}
+        catch(Exception e){setStatus("Ključ nije spremljen ("+e.getClass().getSimpleName()+"). Grupa nije promijenjena.");return false;}
     }
     String invitationToken(){
-        if(groupKey==null)return null;
-        try {JSONObject json=new JSONObject().put("v",2).put("key",Base64.encodeToString(groupKey,Base64.NO_WRAP)).put("name",groupName).put("revision",groupRevision);
+        if(engine.groupKey==null)return null;
+        try {JSONObject json=new JSONObject().put("v",2).put("key",Base64.encodeToString(engine.groupKey,Base64.NO_WRAP)).put("name",engine.groupName).put("revision",engine.groupRevision);
             return "phoenix2:"+Base64.encodeToString(json.toString().getBytes(StandardCharsets.UTF_8),Base64.URL_SAFE|Base64.NO_WRAP|Base64.NO_PADDING);
         }catch(Exception e){return null;}
     }
@@ -426,43 +351,43 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             for(int y=0;y<size;y++)for(int x=0;x<size;x++)pixels[y*size+x]=matrix.get(x,y)?Color.BLACK:Color.WHITE;
             Bitmap bitmap=Bitmap.createBitmap(pixels,size,size,Bitmap.Config.ARGB_8888);ImageView image=new ImageView(this);image.setImageBitmap(bitmap);
             LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(16),dp(16),dp(16),dp(16));
-            body.addView(label(groupName+"\nPozivnica daje pristup grupi. Pokaži je samo kolegama.",14,Color.WHITE));body.addView(image,new LinearLayout.LayoutParams(-1,dp(260)));
+            body.addView(label(engine.groupName+"\nPozivnica daje pristup grupi. Pokaži je samo kolegama.",14,Color.WHITE));body.addView(image,new LinearLayout.LayoutParams(-1,dp(260)));
             TextView text=label(token,10,MUTED);text.setTextIsSelectable(true);body.addView(text);ScrollView scroll=new ScrollView(this);scroll.addView(body);
             AlertDialog dialog=new AlertDialog.Builder(this).setTitle("QR pozivnica").setView(scroll).setPositiveButton("Zatvori",null).create();dialog.show();if(dialog.getWindow()!=null)dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        }catch(Exception e){status.setText("QR kod nije izrađen.");}
+        }catch(Exception e){setStatus("QR kod nije izrađen.");}
     }
     static final class Estimate {
         double meters=Double.NaN;Double angle;String distanceSource="BLE",directionSource="bez smjera",note="";
     }
     Estimate estimate(Peer peer){
-        Estimate e=new Estimate();if(nearby.live(peer.id))e.distanceSource="Nearby";long now=SystemClock.elapsedRealtime();
-        boolean uwbLive=selectedSession!=null&&selectedSession==peer.id&&uwb.targetSession==peer.id&&uwb.distance!=null&&Navigation.fresh(uwb.measuredAt,now,3000);
-        if(uwbLive){e.meters=uwb.distance;e.distanceSource="UWB";e.note="Pogreška UWB-a nije prijavljena";
-            if(uwb.azimuth!=null&&Navigation.antennaPosture(backHorizontal,displayRotation)&&Navigation.fresh(postureAt,now,2000)){e.angle=RadarMath.normalize(uwb.azimuth);e.directionSource="UWB kut antene";}
-            else if(uwb.azimuth!=null)e.note="Za UWB kut drži telefon uspravno u portretu";
-            else e.note+=" • "+(uwb.angleSupported?"UWB kut trenutačno nije izmjeren":"Lokalni UWB servis ne prijavljuje podršku za kut");
+        Estimate e=new Estimate();if(engine.nearby.live(peer.id))e.distanceSource="Nearby";if(engine.aware.live(peer.id))e.distanceSource="Wi-Fi Aware";long now=SystemClock.elapsedRealtime();
+        boolean uwbLive=engine.selectedSession!=null&&engine.selectedSession==peer.id&&engine.uwb.targetSession==peer.id&&engine.uwb.distance!=null&&Navigation.fresh(engine.uwb.measuredAt,now,3000);
+        if(uwbLive){e.meters=engine.uwb.distance;e.distanceSource="UWB";e.note="Pogreška UWB-a nije prijavljena";
+            if(engine.uwb.azimuth!=null&&Navigation.antennaPosture(backHorizontal,displayRotation)&&Navigation.fresh(postureAt,now,2000)){e.angle=RadarMath.normalize(engine.uwb.azimuth);e.directionSource="UWB kut antene";}
+            else if(engine.uwb.azimuth!=null)e.note="Za UWB kut drži telefon uspravno u portretu";
+            else e.note+=" • "+(engine.uwb.angleSupported?"UWB kut trenutačno nije izmjeren":"Lokalni UWB servis ne prijavljuje podršku za kut");
         }
-        Location mine=gps.fix;long theirAge=Navigation.receivedFixAge(peer.fixAge,0,Math.max(0,now-peer.geoAt));
-        if(gps.sharing&&mine!=null&&peer.hasGeo&&Navigation.validFix(mine.getLatitude(),mine.getLongitude(),mine.getAccuracy(),gps.age())&&Navigation.validFix(peer.lat,peer.lon,peer.error,theirAge)){
+        boolean rttLive=!uwbLive&&engine.aware.measuredPeer==peer.id&&engine.aware.distance!=null&&Navigation.fresh(engine.aware.measuredAt,now,8000);
+        if(rttLive){e.meters=engine.aware.distance;e.distanceSource="Wi-Fi RTT";e.note="RTT bez izmjerenog smjera"+(engine.aware.spread==null?"":String.format(Locale.ROOT," • standardna devijacija %.2f m (nije granica pogreške)",engine.aware.spread));}
+        boolean metricLive=uwbLive||rttLive;
+        Location mine=engine.gps.fix;long theirAge=Navigation.receivedFixAge(peer.fixAge,0,Math.max(0,now-peer.geoAt));
+        if(engine.gps.sharing&&mine!=null&&peer.hasGeo&&Navigation.validFix(mine.getLatitude(),mine.getLongitude(),mine.getAccuracy(),engine.gps.age())&&Navigation.validFix(peer.lat,peer.lon,peer.error,theirAge)){
             double d=RadarMath.distance(mine.getLatitude(),mine.getLongitude(),peer.lat,peer.lon),errors=mine.getAccuracy()+peer.error;
-            if(!uwbLive){e.meters=d;e.distanceSource="GPS ~";e.note=String.format(Locale.ROOT,"Procjene pogreške telefona: %.0f + %.0f m",mine.getAccuracy(),peer.error);}
-            boolean consistent=!uwbLive||Navigation.consistent(d,uwb.distance,errors);
-            float declination=gps.declination();
-            if(e.angle==null&&consistent&&heading!=null&&Float.isFinite(declination)&&Navigation.fresh(headingAt,now,2000)&&RadarMath.gpsDirectionUsable(d,mine.getAccuracy(),peer.error,gps.age(),theirAge)){
+            if(!metricLive){e.meters=d;e.distanceSource="GPS ~";e.note=String.format(Locale.ROOT,"Procjene pogreške telefona: %.0f + %.0f m",mine.getAccuracy(),peer.error);}
+            boolean consistent=!metricLive||Navigation.consistent(d,e.meters,errors);
+            float declination=engine.gps.declination();
+            if(e.angle==null&&consistent&&heading!=null&&Float.isFinite(declination)&&Navigation.fresh(headingAt,now,2000)&&RadarMath.gpsDirectionUsable(d,mine.getAccuracy(),peer.error,engine.gps.age(),theirAge)){
                 e.angle=Navigation.relative(RadarMath.bearing(mine.getLatitude(),mine.getLongitude(),peer.lat,peer.lon),heading+declination);e.directionSource="GPS + kompas";
-            }else if(!uwbLive&&e.angle==null)e.note+=" • smjer nije dovoljno pouzdan";
-            else if(!consistent&&e.angle==null)e.note="GPS i UWB se ne slažu; GPS smjer skriven";
+            }else if(!metricLive&&e.angle==null)e.note+=" • smjer nije dovoljno pouzdan";
+            else if(!consistent&&e.angle==null)e.note="GPS i izravno mjerenje se ne slažu; GPS smjer skriven";
         }
         return e;
     }
-    String measurementText(Peer peer){Estimate e=estimate(peer);String distance=Double.isFinite(e.meters)?String.format(Locale.ROOT,"%s %.1f m",e.distanceSource,e.meters):(nearby.live(peer.id)?"Nearby veza • bez metara":"BLE blizina • bez metara");
+    String measurementText(Peer peer){Estimate e=estimate(peer);String distance=Double.isFinite(e.meters)?String.format(Locale.ROOT,"%s %.1f m",e.distanceSource,e.meters):(engine.nearby.live(peer.id)?"Nearby veza • bez metara":"BLE blizina • bez metara");
         return distance+" • "+e.directionSource+(e.note.isEmpty()?"":"\n"+e.note);}
-    void refreshMembers(){
-        long now=SystemClock.elapsedRealtime();peers.values().removeIf(p->now-p.seen>120000&&!nearby.live(p.id));
-        refreshHardware();if(searching){if(selectedSession!=null&&uwb.targetSession==selectedSession)status.setText(uwb.status);else if(gps.sharing)status.setText(gps.state);}renderDashboard();
-    }
+    void refreshMembers(){refreshHardware();if(findPending&&engine.searching&&!engine.peers.isEmpty()){findPending=false;choosePeer();}renderDashboard();}
     final Runnable tick=new Runnable(){public void run(){if(!visible)return;refreshMembers();handler.postDelayed(this,1000);}};
-    @Override protected void onResume(){super.onResume();visible=true;if(dashboard!=null)dashboard.view.onResume();
+    @Override protected void onResume(){super.onResume();visible=true;engine.uiVisible=true;if(dashboard!=null)dashboard.view.onResume();
         Sensor sensor=sensors==null?null:sensors.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         if(sensor!=null)sensors.registerListener(this,sensor,SensorManager.SENSOR_DELAY_UI);
         motion.reset();gravityReady=false;motionSensorType=0;
@@ -470,9 +395,9 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         if(acceleration==null&&sensors!=null)acceleration=sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         if(acceleration!=null&&sensors.registerListener(this,acceleration,SensorManager.SENSOR_DELAY_UI))motionSensorType=acceleration.getType();
         handler.post(tick);}
-    @Override protected void onPause(){visible=false;handler.removeCallbacks(tick);if(dashboard!=null)dashboard.view.onPause();motion.reset();gravityReady=false;if(sensors!=null)sensors.unregisterListener(this);super.onPause();}
-    @Override protected void onStop(){boolean active=searching||pairing.active;stop();pairing.stop();if(active)status.setText("Radar i povezivanje zaustavljeni izlaskom iz aplikacije.");renderDashboard();super.onStop();}
-    @Override protected void onDestroy(){stop();pairing.stop();handler.removeCallbacksAndMessages(null);if(dashboard!=null)dashboard.destroy();super.onDestroy();}
+    @Override protected void onPause(){visible=false;heading=null;headingAt=postureAt=0;handler.removeCallbacks(tick);if(dashboard!=null)dashboard.view.onPause();motion.reset();gravityReady=false;if(sensors!=null)sensors.unregisterListener(this);super.onPause();}
+    @Override protected void onStop(){if(ar!=null)ar.close();engine.uiVisible=false;pairing.stop();super.onStop();}
+    @Override protected void onDestroy(){if(ar!=null)ar.close();pairing.stop();handler.removeCallbacksAndMessages(null);if(dashboard!=null)dashboard.destroy();super.onDestroy();}
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy){if(sensor.getType()==Sensor.TYPE_ROTATION_VECTOR&&accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE){heading=null;headingAt=0;}}
     String motionSummary(){
         long now=SystemClock.elapsedRealtime();

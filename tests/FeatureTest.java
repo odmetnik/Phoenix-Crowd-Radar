@@ -24,6 +24,15 @@ public class FeatureTest {
   check(ArGuide.signed(359)==-1);check(ArGuide.signed(181)==-179);check(ArGuide.signed(-90)==-90);
   check(ArGuide.turn(359).equals("ISPRED TEBE"));check(ArGuide.turn(270).equals("OKRENI ULIJEVO"));check(ArGuide.turn(90).equals("OKRENI UDESNO"));
   check(ArGuide.turn(180).contains("IZA TEBE"));check(ArGuide.turn(Double.NaN).contains("NIJE IZMJEREN"));check(Double.isNaN(ArGuide.position(Double.NaN)));
+  byte[] payload=new byte[900];new java.security.SecureRandom().nextBytes(payload);var fragments=Fragments.split(payload,11,180);check(fragments.size()>1);
+  Fragments.Assembly assembly=new Fragments.Assembly();byte[] joined=null;
+  for(int i=fragments.size()-1;i>=0;i--){byte[] next=assembly.accept(fragments.get(i),1000);if(next!=null)joined=next;}check(Arrays.equals(payload,joined));
+  assembly=new Fragments.Assembly();check(assembly.accept(fragments.get(0),1000)==null);check(assembly.accept(fragments.get(0),1001)==null);
+  check(assembly.expired(7001));check(assembly.accept(new byte[4000],2000)==null);
+  var sealedParts=Fragments.split(NearCrypto.seal(key,payload),22,180);assembly=new Fragments.Assembly();joined=null;for(byte[] part:sealedParts){byte[] next=assembly.accept(part,3000);if(next!=null)joined=next;}check(Arrays.equals(payload,NearCrypto.open(key,joined)));
+  byte[] conflicting=fragments.get(0).clone();conflicting[conflicting.length-1]^=1;assembly=new Fragments.Assembly();assembly.accept(fragments.get(0),1000);check(assembly.accept(conflicting,1001)==null);check(assembly.expired(1002));
+  check(ArGuide.range(.6)==1);check(ArGuide.range(38)==50);check(ArGuide.range(0)==.5);check(ArGuide.range(Double.NaN)==.5);
+  LinkHealth health=new LinkHealth();check(health.sample(false,1000)==0);check(health.sample(false,20000)==0);check(health.sample(true,20001)==0);check(health.sample(false,21000)==0);check(health.sample(false,26999)==0);check(health.sample(false,27000)==-1);check(health.sample(false,40000)==0);check(health.sample(true,41000)==0);check(health.sample(true,44000)==1);health.reset();check(health.sample(false,99999)==0);
   ShortMessages a=new ShortMessages(),b=new ShortMessages();
   ShortMessages.Entry sent=a.send(22,"Vlado","Kod glavnog ulaza.",1000);
   check(ShortMessages.validId(sent.id));check(a.pending(1001)!=null);

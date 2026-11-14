@@ -115,8 +115,8 @@ final class NumberPairing {
             }
         }
     };
-    void stop(){active=false;generation++;authorized.clear();peer=null;found.clear();
+    void stop(){boolean wasActive=active;active=false;generation++;authorized.clear();peer=null;found.clear();
         if(dialog!=null){dialog.dismiss();dialog=null;}
-        try{client.stopAdvertising();client.stopDiscovery();client.stopAllEndpoints();}catch(RuntimeException ignored){}
+        if(wasActive)try{client.stopAdvertising();client.stopDiscovery();client.stopAllEndpoints();}catch(RuntimeException ignored){}
     }
 }

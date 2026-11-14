@@ -21,6 +21,8 @@ final class NearbyLink {
     final Context context;final Listener listener;final ConnectionsClient client;final Handler main=new Handler(Looper.getMainLooper());
     final Map<String,Integer> found=new LinkedHashMap<>();final Map<String,Long> attempts=new HashMap<>();
     byte[] key;int session,generation;Integer focus,remote;String endpoint,nonce;long requested,lastReceived,connecting;boolean active,connected,authenticated;
+    boolean advertisingOk,discoveryOk;
+    boolean discoveryHealthy(){return connected||endpoint!=null||(advertisingOk&&discoveryOk);}
     String status="Nearby isključen";String service;
     NearbyLink(Context c,Listener l){context=c;listener=l;client=Nearby.getConnectionsClient(c);}
     boolean live(int id){return active&&authenticated&&remote!=null&&remote==id&&SystemClock.elapsedRealtime()-lastReceived<=6000;}
@@ -52,7 +54,8 @@ final class NearbyLink {
     String ownName(){return String.format(Locale.ROOT,"PCR6-%08x",session);}
     void advertise(int ticket){if(!valid(ticket))return;
         client.startAdvertising(ownName(),service,lifecycle,new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_POINT_TO_POINT).build())
-            .addOnFailureListener(e->{if(valid(ticket)){status="Nearby oglašavanje nedostupno • BLE ostaje aktivan";}});
+            .addOnSuccessListener(v->{if(valid(ticket))advertisingOk=true;})
+            .addOnFailureListener(e->{if(valid(ticket)){advertisingOk=false;status="Nearby oglašavanje nedostupno • BLE ostaje aktivan";}});
     }
     void discover(int ticket){if(!valid(ticket))return;
         client.startDiscovery(service,new EndpointDiscoveryCallback(){
@@ -60,7 +63,8 @@ final class NearbyLink {
                 if(peer!=null&&peer!=session&&(found.containsKey(id)||found.size()<24)){found.put(id,peer);connectNext();}}
             @Override public void onEndpointLost(String id){if(valid(ticket))found.remove(id);}
         },new DiscoveryOptions.Builder().setStrategy(Strategy.P2P_POINT_TO_POINT).build())
-            .addOnFailureListener(e->{if(valid(ticket))status="Nearby traženje nedostupno • provjeri dozvole / Google Play usluge";});
+            .addOnSuccessListener(v->{if(valid(ticket))discoveryOk=true;})
+            .addOnFailureListener(e->{if(valid(ticket)){discoveryOk=false;status="Nearby traženje nedostupno • provjeri dozvole / Google Play usluge";}});
     }
     void focus(Integer id){if(Objects.equals(focus,id))return;focus=id;if(remote!=null&&!Objects.equals(remote,id))drop("Nearby • mijenjam odabrani par");else connectNext();}
     void connectNext(){if(!active||endpoint!=null)return;long now=SystemClock.elapsedRealtime();
@@ -106,7 +110,7 @@ final class NearbyLink {
         if(old!=null){attempts.put(old,SystemClock.elapsedRealtime());client.disconnectFromEndpoint(old);}status=reason;
         client.stopAdvertising();client.stopDiscovery();int ticket=generation;main.postDelayed(()->{if(valid(ticket)&&endpoint==null){advertise(ticket);discover(ticket);}},1500);
     }
-    void stop(){active=false;generation++;main.removeCallbacksAndMessages(null);endpoint=null;remote=null;nonce=null;connected=false;authenticated=false;lastReceived=0;found.clear();attempts.clear();
+    void stop(){active=false;advertisingOk=discoveryOk=false;generation++;main.removeCallbacksAndMessages(null);endpoint=null;remote=null;nonce=null;connected=false;authenticated=false;lastReceived=0;found.clear();attempts.clear();
         try{client.stopAdvertising();client.stopDiscovery();client.stopAllEndpoints();}catch(RuntimeException ignored){}
         if(key!=null)Arrays.fill(key,(byte)0);key=null;status="Nearby isključen";
     }
