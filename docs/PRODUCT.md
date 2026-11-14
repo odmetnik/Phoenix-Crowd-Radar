@@ -1,6 +1,6 @@
 # Napomena o verziji
 
-Ovaj dokument opisuje početnu arhitekturu i cilj. Za trenutačno stanje 0.2 mjerodavan je README.md: QR, brojčano uparivanje i šifrirani GATT profili sada su dodani u izvor, ali nisu testirani na Android uređajima. Precizna UWB/GPS/RTT mjerenja i dalje nisu integrirana.
+Ovaj dokument opisuje početnu arhitekturu i cilj. Za trenutačno stanje 0.3 mjerodavni su README.md i ugrađeni Help: GPS razmjena i UWB sesija sada su integrirane u izvor. Fizička kompatibilnost nije potvrđena; Wi-Fi RTT i dalje nije integriran. Donji tekst ostaje povijest početne arhitekture.
 
 # Phoenix Crowd Radar — usvojeni smjer razvoja
 

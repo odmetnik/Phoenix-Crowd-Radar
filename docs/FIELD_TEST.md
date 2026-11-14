@@ -31,3 +31,7 @@ UWB/GPS/Wi-Fi testovi dodaju se tek kada njihove stvarne integracije postoje. De
 - UWB na jednom telefonu ne smije prikazati zajednički UWB; UWB na oba ne smije prikazati aktivnu preciznost bez mjerenja.
 - Promjena imena i naziva, ponovno otvaranje, ponovno pridruživanje drugoj grupi; stari naziv ne smije procuriti novim članovima pogrešne grupe.
 - Nazivi se sinkroniziraju revizijom bez administratora; zasebne ovlasti/uklanjanje članova nisu implementirani.
+
+## 0.3 — novi obvezni testovi
+
+40 provjera jezgre, Help policy i puni Android build/lint. Fizički GPS/UWB/GATT testovi opisani su u UWB_GPS.md. Provjeriti i da GPS ne počinje bez zasebnog uključivanja, da Stop/onPause briše vlastiti fix i UWB ponudu te da se ni ključevi ni koordinate ne pojavljuju u CI/app logovima.

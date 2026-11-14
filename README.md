@@ -1,61 +1,52 @@
-# Phoenix Crowd Radar — 0.2.0-dev
+# Phoenix Crowd Radar — 0.3.0-dev
 
-Native Android cyber radar za pronalaženje kolega u gužvi. Phoenix Art / by Željko Kušter.
+Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GPS razmjena i UWB sesija za odabrani par. Phoenix Art / by Željko Kušter.
 
-**Razvojni Android projekt. Status izrade i provjera nalazi se u GitHub Actions; nakon uspješne izrade APK je u Artifacts. Fizički test na telefonima još nije izvršen.**
+**Aktualna kompilacija i Android lint: GitHub Actions. Fizička UWB/BLE/GPS kompatibilnost i preciznost još nisu potvrđeni na telefonima.** APK je razvojni i zahtijeva Android 12+.
 
-## Dodano u 0.2
+## Što radi 0.3
 
-- Promjenjiv naziv grupe/događaja. „Interliber” nije ugrađen kao obvezan naziv.
-- Korisničko ime koje svatko postavlja u svom profilu; model telefona očitava se automatski.
-- Stvarno generiranje i skeniranje QR pozivnice kroz ZXing.
-- Dodavanje člana lokalnom Nearby vezom: vlasnik odobrava zahtjev i pokazuje kod; drugi korisnik upisuje taj kod. Ne koristi se telefonski broj ni račun na serveru.
-- Google Nearby provjera koda na oba kraja prije prijenosa grupne pozivnice. Grupni ključ nije izveden iz kratkog PIN-a. Otvaranje za dodavanje traje najviše 90 s.
-- Šifrirana GATT razmjena imena, modela, stabilnog lokalnog ID-a i podržanog hardvera između uređaja iste grupe.
-- Kartica člana pokazuje zajedničku podršku obaju telefona, aktivni BLE način i činjenicu da preciznost u metrima još nije izmjerena.
-- Naziv grupe prenosi se pozivnicom i naknadnom razmjenom profila s većom revizijom. Izmjena profila/naziva može trebati do sljedećeg očitanja (oko 30 s).
+- Kreiranje grupe, promjenjiv naziv, korisnička imena i kartice mogućnosti telefona.
+- QR pozivnica ili brojčana potvrda preko Google Nearby Connections. Kratki kod nije grupni ključ.
+- BLE oglasi iste grupe daju RSSI razred, bez izmišljanja metara ili smjera.
+- Živa šifrirana GATT veza: profili i stanje odvojeni su, svako čitanje vezano je uz nov nasumičan izazov. Do šest podatkovnih peerova; do 24 presence ID-a.
+- GPS/GNSS prikupljanje preko Android GPS providera. Dijeljenje se uključuje zasebnim gumbom na svakom telefonu. Svježina i procjena pogreške putuju s lokacijom.
+- Udaljenost i smjer iz koordinata samo kada su lokacije dovoljno dobre. Za smjer koristimo pouzdanu orijentaciju i deklinaciju prema pravom sjeveru. Previše nesiguran smjer je skriven.
+- Jetpack UWB 1.0.0 za jednu odabranu osobu. Oba korisnika odabiru jedno drugo i pokreću UWB. Uloge su automatske, prednost ima zajednički provisioned STS, a zatim zajednički static STS profil. Random ključ i parametri sesije prenose se šifriranim grupnim GATT kanalom.
+- UWB udaljenost i kut pojavljuju se tek nakon stvarnog svježeg API rezultata. UWB kut prikazuje se samo u podržanom uspravnom portretu; referenca je os antene iza stražnje strane telefona. Nije automatski GPS kompas. Test smjera konkretnog modela ostaje obvezan.
+- Svjež UWB ima prednost za udaljenost, zatim valjan GPS, zatim BLE bez metara. GPS se ne koristi za smjer ako se značajno ne slaže s UWB udaljenošću. UWB zastarijeva nakon 3 s, GPS nakon 10 s.
+- Pomoć je unutar aplikacije, uključuje sve tehnologije, ograničenja, privatnost i promjene verzije.
 
-## Status
+## Korištenje
 
-| Funkcija | Stanje |
-|---|---|
-| Cyber dashboard, kružni radar, demo | Implementirano u izvoru |
-| Grupni BLE presence, RSSI signalni razredi | Implementirano u izvoru; test na telefonima obvezan |
-| QR i brojčano uparivanje | Implementirano u izvoru; kamera/radio/Google Play usluge nisu testirani |
-| Imena, modeli i hardverske mogućnosti članova | AES-GCM GATT razmjena implementirana u izvoru; runtime nije potvrđen |
-| Kompas | Orijentacija vlastitog telefona, ne smjer člana |
-| UWB / Wi-Fi Aware / RTT | Detekcija hardverske podrške i usporedba dvaju profila; mjerenje nije integrirano |
-| GPS | Geometrija i konzervativna pravila preciznosti u testiranoj jezgri; koordinate se još ne prikupljaju i ne razmjenjuju |
-| PING, mesh i rad u pozadini | Nisu implementirani |
+1. Upiši svoje ime, kreiraj grupu i dodaj kolege QR-om ili brojčanom potvrdom.
+2. Na oba telefona uključi Bluetooth, odobri dozvole i pokreni radar.
+3. Za GPS na oba telefona zasebno uključi GPS dijeljenje i pričekaj dobar satelitski signal.
+4. Za UWB na oba kompatibilna telefona uključi UWB u sustavu, dodirni kolegu i odaberi **Traži UWB**. Drži telefon uspravno u portretu. Oba odabira napravi unutar približno 25 s.
+5. Pomoć objašnjava točke, krugove bez smjera, izvore, pogreške i domet.
 
-## Tijek
+Aplikacija radi samo dok je otvorena. Zaključavanje/drugi app/Stop zaustavlja GPS, Bluetooth i UWB. GPS sam ne proširuje radijski domet. Nema mesha, servera za udaljeno praćenje ni PING-a. Wi-Fi Aware/RTT su samo detekcija podrške; Wi-Fi RTT mjerenje još nije implementirano. Nearby numeričko uparivanje koristi Bluetooth/Wi-Fi i Google Play usluge; ne treba internetski router. Google SDK ima vlastitu analitiku.
 
-1. **Moj profil i mogućnosti** → upiši ime.
-2. **Grupa → Promijeni naziv grupe** → primjerice „Ekipa”, „Sajam”, „Planinarenje”.
-3. **Kreiraj novu grupu** na jednom telefonu.
-4. Dodavanje QR-om: prvi pokaže QR pozivnicu, drugi odabere **Skeniraj QR kod**.
-5. Dodavanje brojem: prvi odabere **Dodaj člana brojem**; drugi **Pridruži se upisom broja**, izabere kolegin uređaj i upiše broj s njegova ekrana. Prvi izričito odobrava člana.
-6. Oba pokrenu radar. Kada se razmijene profili, kartice prikazuju imena i modele umjesto privremenog session ID-a.
+## Help pri svakoj nadogradnji
 
-Za brojčano uparivanje moraju biti uključeni Bluetooth i Wi-Fi. Ne treba internetska veza niti spajanje na router; trebaju kompatibilne Google Play usluge. QR i osnovni BLE/GATT nemaju taj zahtjev. Nearby SDK ima vlastitu analitiku prema Googleovoj dokumentaciji; ne opisivati cijelu aplikaciju kao aplikaciju bez telemetrije prije zasebne provjere SDK-a.
+`app/src/main/assets/help.txt` mora imati VERSION jednaku APK verziji i stvarni opis trenutačnog ponašanja. CI odbija produkcijsku promjenu Java koda bez promjene Helpa u istom commitu. Android preBuild također provjerava verziju Helpa. Pravilo je trajno zapisano u AGENTS.md.
 
-QR pozivnica sadrži grupni ključ i daje pristup grupi. Pozivnicu pokazivati samo članovima. Svi članovi koji znaju ključ mogu pozivati druge. Uklanjanje pojedinca još nema zaseban protokol; preostali stvaraju novu grupu.
+## Build
 
-## Što znači prikaz preciznosti
-
-„UWB podržan” nije „UWB aktivan”. „Zajednički UWB hardver” nije jamstvo API interoperabilnosti ili dostupnog kuta. Stvarna aktivna preciznost dolazi tek iz konkretnih mjerenja. Trenutačni BLE radar ne prikazuje izmišljene metre ni kutove. Imena i modeli prijavljeni su profilima članova, nisu neovisno potvrđen identitet ili hardverska atestacija.
-
-Aplikacija 0.2 radi samo dok je otvorena. Prebacivanje u drugi app/zaključavanje zaustavlja rad. Demo koristi jasno označene simulirane osobe.
-
-## Build i provjera
-
-JDK 17, Gradle 8.11.1, Android SDK 35. Gradle wrapper nije uključen. Za puni Android build treba preuzeti Android/Google Maven ovisnosti.
+JDK 17, Gradle 8.11.1, Android SDK 35. Gradle wrapper nije uključen.
 
 ```bash
 bash tests/run.sh
+python3 tests/check_help.py
 gradle :app:assembleDebug :app:lintDebug
 ```
 
-CI workflow izrađuje razvojni APK kao artifact kada se projekt postavi u GitHub repozitorij. Repozitorij: https://github.com/odmetnik/Phoenix-Crowd-Radar . Stanje konkretnog builda vidi se u kartici Actions. Za stalne instalacije treba konfigurirati trajni potpisni ključ; prolazni CI debug ključevi ne jamče kompatibilne nadogradnje.
+Repozitorij: https://github.com/odmetnik/Phoenix-Crowd-Radar . APK je u Artifacts uspješne izrade.
 
-Lokalno: **24 provjere jezgre prolaze**, svih 10 Java datoteka uspješno parsirano. To nije kompilacija Android aplikacije ni dokaz rada BLE-a/QR-a/Nearbyja. Detalji: `docs/VALIDATION.md`.
+Od 0.3 koristimo stalan javni razvojni potpisni ključ (`signing/README.md`), namijenjen samo testnim verzijama. Prva 0.2 bila je potpisana prolaznim CI ključem: prelazak može zahtijevati uklanjanje stare aplikacije i ponovno pridruživanje grupi. Za produkciju treba zaseban privatni potpisni ključ.
+
+## Provjere i privatnost
+
+40 provjera čiste Java jezgre obuhvaća geometriju, pogreške, starost, neslaganje izvora, položaj antene, grupne pakete i šifriranje. Parser izvora nije zamjena za Android build. Fizička radio-kompatibilnost mora se provjeriti odvojeno.
+
+Grupni ključ spremljen je pomoću Android Keystorea; sadržaj GATT-a šifriran AES-GCM-om. Koordinate i UWB ključevi sesije ne spremaju se u datoteke ili logove. Svaki član koji posjeduje grupni ključ ima pristup grupnim podacima. Prisutnost hardvera i imena/modeli iz profila nisu sigurnosna atestacija. Detalji su u Help-u i docs/UWB_GPS.md.

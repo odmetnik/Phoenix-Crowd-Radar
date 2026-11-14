@@ -22,3 +22,14 @@ U ovom paketu nema kopiranog koda Friendara ni CrowdLinka. Ako se kasnije preuzm
 - https://developers.google.com/nearby/connections/overview — offline transport i Googleova SDK analitika.
 
 Ovisnosti nisu vendorizirane, Gradle ih preuzima iz Google Maven/Maven Central. Njihove licence i uvjete treba zadržati u distribuciji. Vlastiti kod nema dodijeljenu javnu licencu.
+
+## Lociranje 0.3
+
+- https://developer.android.com/develop/connectivity/uwb — podržani Jetpack put, OOB razmjena, STS i ograničenja.
+- https://developer.android.com/reference/androidx/core/uwb/rxjava3/UwbManagerRx — Java/Rx scope API.
+- https://developer.android.com/reference/androidx/core/uwb/rxjava3/UwbClientSessionScopeRx — ranging stream i otkazivanje.
+- https://developer.android.com/reference/androidx/core/uwb/RangingParameters — konfiguracije 1/4, ključevi i parametri.
+- https://developer.android.com/reference/androidx/core/uwb/RangingPosition — jedinice, azimuth i timestamp.
+- https://developer.android.com/reference/android/location/Location — accuracy i elapsedRealtimeNanos.
+
+Nije korišten izravni nepodržani Nearby UWB client; UWB ide preko Jetpacka. Nearby Connections i dalje služi brojčanom uparivanju.

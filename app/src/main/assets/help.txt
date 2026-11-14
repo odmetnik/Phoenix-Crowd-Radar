@@ -1,0 +1,53 @@
+VERSION: 0.3.0-dev
+PHOENIX CROWD RADAR — POMOĆ
+Ažurirano: 14. 11. 2026.
+
+BRZI POČETAK
+1. U Moj profil upiši svoje ime. U Grupa promijeni naziv događaja i kreiraj grupu.
+2. Kolega se pridružuje skeniranjem QR pozivnice ili brojčanom potvrdom. Svi instalirajte istu verziju aplikacije.
+3. Na oba telefona uključi Bluetooth i Pokreni radar. Odobri obližnje uređaje i preciznu lokaciju koju Android traži za lokacijske BLE funkcije.
+4. Za GPS pritisni Uključi GPS dijeljenje na oba telefona. Za UWB dodirni koleginu karticu pa Traži UWB — na oba telefona odaberite jedno drugo.
+5. Držite aplikaciju otvorenom. Zaustavljanje, drugi app ili zaključavanje zaustavlja radio, GPS dijeljenje i UWB sesiju.
+
+BLE — BLIZINA I PRONALAŽENJE ČLANOVA
+Bluetooth Low Energy šalje male grupne oglase. RSSI je primljena jačina signala u dBm. Manje negativna vrijednost obično znači jači signal, ali džep, tijelo, štandovi i refleksije mijenjaju očitanje. Jači signal nije siguran dokaz približavanja. Signalni pojasevi nisu metri. Kompas ne može otkriti smjer Bluetooth signala.
+GATT je Bluetooth podatkovna veza. Njome razmjenjujemo profile, lokaciju kada je uključiš i parametre UWB sesije. Aktivne podatkovne veze ograničene su na šest uređaja; oglasi mogu prikazati do 24 privremena člana. Mogućnosti telefona dodatno ograničavaju stvaran broj veza.
+
+GPS / GNSS — LOKACIJA NA OTVORENOM
+GNSS prijamnik dobiva koordinate sa satelita; za samu GPS lokaciju ne treba internet. Aplikacija koristi Android GPS provider. U zatvorenom GPS može biti nedostupan ili netočan. Internet nije zamjena za kvalitetan satelitski signal.
+Lokaciju počinjemo dijeliti tek nakon zasebnog uključivanja GPS dijeljenja. Svaki telefon mora uključiti svoje dijeljenje. Podaci idu lokalnom šifriranom vezom članovima grupe, ne našem serveru. GNSS lokacija sama ne proširuje domet Bluetooth veze: bez podatkovne veze ne dobivamo nove koordinate kolege.
+Oznaka GPS ~ znači približnu udaljenost iz dviju koordinata. Prikazujemo procjene pogreške obaju telefona. To nisu zajamčene granice pogreške. Čuvamo i starost lokacije, računatu monotoničkim satom uz konzervativno uračunato kašnjenje prijenosa. Lokacije starije od 10 sekundi ne prikazujemo kao aktualne. Lažne/mock lokacije ova verzija odbija.
+GPS smjer prikazujemo samo kada su lokacije dovoljno svježe i dovoljno precizne u odnosu na njihov razmak te imamo pouzdan kompas. Kada se područja pogreške znatno preklapaju, nema strelice.
+
+UWB — IZRAVNO MJERENJE IZMEĐU TELEFONA
+Ultra-wideband mjeri udaljenost radio-vremenom leta. Oba telefona trebaju UWB hardver, uključenu UWB postavku, Android UWB dozvolu, kompatibilan servis i kompatibilnu zajedničku sesiju. Koristimo podržani Jetpack UWB SDK. Prisutnost hardvera nije potvrda da će konkretan par raditi.
+UWB traži jednu odabranu osobu. Na oba telefona odaberite jedno drugo i pritisnite Traži UWB unutar približno 25 sekundi. Uloge kontrolera i odgovarača dodjeljuju se automatski. Parametri, adrese i nasumični ključ sesije razmjenjuju se šifriranim GATT kanalom. Preferiramo provisioned STS ako ga oba podržavaju; inače koristimo zajednički static STS profil. Static STS ima slabiju zaštitu od relay napada. UWB nije sustav za provjeru fizičke prisutnosti u sigurnosno kritične svrhe.
+UWB udaljenost ne ovisi o GPS-u. Kut postoji samo kada ga podržava lokalni prijamnik i API ga stvarno vrati. Kut je relativan prema osi antene, a nije automatski smjer zemljopisnog sjevera. Za prikaz UWB kuta držite telefon USPRAVNO U PORTRETU, stražnjom stranom prema prostoru koji pretražujete. Nula na radaru tada znači smjer iza stražnje strane telefona, a pozitivan kut udesno. Kad položaj telefona nije prikladan, prikazujemo udaljenost bez UWB strelice. Kalibraciju smjera konkretnog modela treba potvrditi na stvarnim telefonima.
+Pogrešku UWB-a ne izmišljamo ako je sustav ne daje. Broj decimala nije jamstvo centimetarske točnosti. Nakon 3 sekunde bez svježeg UWB očitanja uklanjamo aktualnu UWB točku i prelazimo na valjan GPS ili BLE. Ako se GPS i UWB udaljenosti ne slažu izvan dopuštene procjene pogreške, ne koristimo GPS za nadomještanje UWB smjera.
+Ako nema mjerenja, provjerite UWB postavku, dopuštenje, otvorenu aplikaciju i odabir na oba telefona, pa ponovno pokrenite traženje. Neki parovi/uloge uređaja nisu kompatibilni.
+
+KOMPAS I ORIJENTACIJA
+Senzor rotacije koristi senzore orijentacije telefona. Za GPS smjer dodajemo magnetsku deklinaciju iz svježe vlastite lokacije da bismo koristili pravi sjever. Metal i magneti mogu poremetiti kompas. Nepouzdanu ili zastarjelu orijentaciju ne koristimo za GPS strelicu.
+Dok je telefon uspravan, naprijed je smjer iza njegove stražnje strane; kada ga držite položenog, naprijed je gornji rub. Za UWB kut ova verzija podržava samo uspravan portret.
+
+QR, BROJČANI KOD I WI-FI
+QR sadrži grupni ključ i naziv grupe. Pokaži ga samo kolegama. Brojčano uparivanje koristi Google Nearby Connections: oba telefona trebaju Google Play usluge, Bluetooth i Wi-Fi. Internet i povezivanje na router nisu potrebni. Odaberi kolegin uređaj, upiši broj s njegova ekrana i kolega mora odobriti dodavanje. Kratki broj potvrđuje šifriranu vezu; on nije grupni ključ. Dodavanje je otvoreno najviše 90 sekundi.
+Nearby može koristiti Bluetooth i Wi-Fi kao podatkovni transport. Wi-Fi Aware i Wi-Fi RTT hardversku podršku prikazujemo u profilu, ali ova verzija NE pokreće Wi-Fi RTT mjerenje. Wi-Fi signal sam ne daje smjer druge osobe. Google Nearby SDK ima vlastitu analitiku prema Googleovoj dokumentaciji.
+
+KAKO ČITATI RADAR / PRECIZNOST
+Točka: imamo svježu udaljenost i valjan smjer. Krug bez točke: postoji udaljenost, ali smjer nije dostupan. Kada postoje metarske vrijednosti, radijus radara je automatski označen u metrima; BLE članovi bez mjerenja ostaju na popisu i ne dobivaju lažnu poziciju u tom mjerilu. Kada nema metara, pojasevi označavaju samo razrede BLE signala.
+Kartice odvajaju podržani hardver od aktivnog izvora. Za udaljenost prednost ima svjež UWB, zatim valjan GPS, zatim BLE bez metara. Izvor udaljenosti i izvor smjera mogu se razlikovati i prikazani su zasebno. GPS ~ nije jednako UWB mjerenju.
+DEMO je simulacija: prikazane osobe nisu stvarno pronađene i pravi radio/GPS/UWB su zaustavljeni.
+
+PRIVATNOST I OGRANIČENJA
+Koristimo AES-GCM za sadržaj GATT poruka i HMAC za grupne BLE oglase. Grupni ključ je spremljen kroz Android Keystore. Za svako čitanje živi kanal koristi novi izazov radi provjere svježine odgovora. Član koji ima grupni ključ može pozivati druge i čitati grupne podatke; ovo nije sustav pojedinačnih administratorskih ovlasti.
+Imena i mogućnosti su podaci koje prijavljuje aplikacija drugog člana, nisu dokaz identiteta ni hardverska atestacija. BLE oglasi imaju privremeni ID i vremenski prozor; ne jamčimo zaštitu od svih replay/relay napada. Koristi novu grupu za novi događaj. Za uklanjanje osobe preostali trebaju novu grupu.
+Koordinate i UWB ključeve sesije ne zapisujemo u datoteke, izvještaje ili logove. Nakon Stop/GPS isključeno novi podaci se ne šalju; zadnji primljeni podatak na drugom telefonu prestaje vrijediti prema pravilima starosti. Aplikacija nema mesh, server za udaljeno praćenje, PING niti rad u pozadini. Ne jamči pokrivenost cijelog sajma. Izrada APK-a i testovi ne potvrđuju fizičku UWB kompatibilnost.
+
+PROMJENE — 0.3.0-dev
+• Dodano GNSS prikupljanje i zasebno GPS dijeljenje.
+• Dodana svježa šifrirana GATT razmjena stanja i zaštita odgovora izazovom.
+• Dodana Jetpack UWB sesija za odabrani par, mjerenje udaljenosti i uvjetni prikaz kuta.
+• Dodan izbor izvora, provjera nesigurnosti i skrivanje zastarjelih/nekonzistentnih smjerova.
+• Uveden stalni javni ključ za razvojne APK-ove. Prethodna 0.2 može tražiti deinstalaciju i ponovno pridruživanje grupi; buduće razvojne nadogradnje koriste isti ključ.
+• Dodan ovaj Help. Svaka nadogradnja mora ažurirati Help; CI provjerava verziju i promjenu pomoći uz kod.

@@ -36,8 +36,24 @@ public class CoreTest {
         sealed[sealed.length-1]^=1;rejected=false;try{ProfileCrypto.open(key,sealed);}catch(Exception e){rejected=true;}
         check(rejected,"Profile ciphertext tampering rejected");
         check(!Capabilities.pairSummary(Capabilities.BLE|Capabilities.UWB,Capabilities.BLE).contains("Zajednički UWB"),"One UWB phone is insufficient");
-        check(Capabilities.pairSummary(Capabilities.BLE|Capabilities.UWB,Capabilities.BLE|Capabilities.UWB).contains("još nije integrirano"),"Hardware does not imply active precision");
+        check(Capabilities.pairSummary(Capabilities.BLE|Capabilities.UWB,Capabilities.BLE|Capabilities.UWB).contains("ne jamči aktivnu sesiju"),"Hardware does not imply active precision");
         check(!Capabilities.pairSummary(Capabilities.AWARE|Capabilities.RTT,Capabilities.AWARE).contains("Zajednički Wi-Fi"),"Aware alone does not imply RTT");
+        check(Navigation.fresh(1000,4000,3000),"UWB freshness boundary");
+        check(!Navigation.fresh(1000,4001,3000),"Stale UWB hidden");
+        check(!Navigation.fresh(5000,4000,3000),"Future monotonic timestamp rejected");
+        check(!Navigation.fresh(0,1000,3000),"Uninitialized UWB timestamp rejected");
+        check(Navigation.receivedFixAge(2000,1000,500)==3500,"GPS age includes transport and time since receipt");
+        check(Navigation.receivedFixAge(2000,7000,500)==Long.MAX_VALUE,"Slow transfer invalidates GPS freshness");
+        check(Navigation.validFix(46.2,16.1,5,9000),"Fresh valid GNSS fix");
+        check(!Navigation.validFix(91,16.1,5,1000),"Invalid latitude rejected");
+        check(!Navigation.validFix(46.2,Double.NaN,5,1000),"Non-finite longitude rejected");
+        check(!Navigation.validFix(46.2,16.1,5,10001),"Old fix hidden");
+        check(!Navigation.consistent(100,4,10),"Conflicting GPS cannot supply UWB direction");
+        check(Navigation.consistent(21,20,5),"Consistent sources");
+        check(Navigation.relative(5,355)==10,"GPS bearing across true-north wrap");
+        check(Navigation.antennaPosture(.99,0),"Upright portrait allows antenna-relative bearing");
+        check(!Navigation.antennaPosture(.1,0),"Flat phone hides antenna bearing");
+        check(!Navigation.antennaPosture(.99,1),"Landscape hides unsupported antenna mapping");
         System.out.println("PASS: " + count + " core checks");
     }
 }

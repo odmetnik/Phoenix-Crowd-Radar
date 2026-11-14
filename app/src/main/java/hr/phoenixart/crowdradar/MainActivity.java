@@ -12,6 +12,8 @@ import com.google.zxing.common.BitMatrix;
 import org.json.JSONObject;
 import java.nio.charset.StandardCharsets;
 import hr.phoenixart.crowdradar.core.Capabilities;
+import hr.phoenixart.crowdradar.core.Navigation;
+import android.location.Location;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
@@ -34,6 +36,16 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     byte[] groupKey;
     GroupStore groupStore;
     ProfileLink profiles;
+    GpsLocator gps;
+    UwbLocator uwb;
+    Integer selectedSession;
+    long headingAt,postureAt;
+    double backHorizontal;
+    int displayRotation;
+    Button gpsButton;
+    TextView rangeMode;
+    boolean hadCompassAccuracy;
+    String wireProblem="";
     NumberPairing pairing;
     DeviceProfile own;
     String groupName;
@@ -55,6 +67,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     });
     static class Peer {
         int id; double rssi, baseline; long seen; String alias; DeviceProfile profile;
+        boolean hasGeo; double lat,lon,error; long fixAge,geoAt,stateAt;
         Peer(int id, int signal) { this.id=id; rssi=baseline=signal; alias=String.format(Locale.ROOT,"Član %04X", id & 65535); }
     }
     @Override public void onCreate(Bundle saved) {
@@ -62,6 +75,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         getWindow().setStatusBarColor(BG); getWindow().setNavigationBarColor(BG);
         groupStore = new GroupStore(this);
         try { groupKey = groupStore.load(); } catch (Exception e) { groupKey = null; }
+        gps=new GpsLocator(this);uwb=new UwbLocator(this);
         own=DeviceProfile.local(this);
         groupName=getSharedPreferences("groupInfo",0).getString("name","Moja grupa");
         groupRevision=getSharedPreferences("groupInfo",0).getLong("revision",0);
@@ -69,6 +83,15 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             Peer peer=peers.get(id);if(peer==null)return;peer.profile=profile;peer.alias=profile.name;
             if(revision>groupRevision&&!name.trim().isEmpty()&&name.length()<=40){groupName=name;groupRevision=revision;saveGroupInfo();updateGroup();}
         });
+        profiles.stateSupplier=()->{JSONObject state=new JSONObject();try{JSONObject g=gps.wire();if(g!=null)state.put("g",g);JSONObject u=uwb.wire();if(u.length()>0)state.put("u",u);}catch(Exception ignored){}return state;};
+        profiles.stateListener=(id,data,latency)->{
+            Peer peer=peers.get(id);if(peer==null)return;peer.stateAt=SystemClock.elapsedRealtime();peer.hasGeo=false;
+            JSONObject g=data.optJSONObject("g");
+            if(g!=null)try{double lat=g.getDouble("la"),lon=g.getDouble("lo"),error=g.getDouble("ac");long age=Navigation.receivedFixAge(g.getLong("age"),latency,0);
+                if(Navigation.validFix(lat,lon,error,age)){peer.lat=lat;peer.lon=lon;peer.error=error;peer.fixAge=age;peer.geoAt=SystemClock.elapsedRealtime();peer.hasGeo=true;}
+            }catch(Exception ignored){}
+            uwb.remote(id,data.optJSONObject("u"));
+        };
         pairing=new NumberPairing(this,new NumberPairing.Listener(){
             public String invitation(){return invitationToken();}
             public boolean received(String token){return receiveInvite(token);}
@@ -113,7 +136,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         status = label("Kreiraj grupu ili zalijepi pozivnicu.",13,AMBER); root.addView(status);
         radar = new Radar(); int diameter = Math.min(getResources().getDisplayMetrics().widthPixels-dp(40),dp(480));
         root.addView(radar,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,diameter));
-        root.addView(label("SAMO BLIZINA / SMJER NIJE IZMJEREN",11,CYAN));
+        rangeMode=label("BLE BLIZINA • BEZ IZMIŠLJENOG SMJERA",11,CYAN);root.addView(rangeMode);
         memberLabel = label("ČLANOVI GRUPE • 0",14,Color.WHITE); root.addView(memberLabel);
         memberList = new LinearLayout(this); memberList.setOrientation(LinearLayout.VERTICAL); root.addView(memberList);
         LinearLayout actions = new LinearLayout(this); actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -121,15 +144,38 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         actions.addView(searchButton,new LinearLayout.LayoutParams(0,dp(56),1));
         actions.addView(button("GRUPA",this::groupMenu),new LinearLayout.LayoutParams(0,dp(56),1)); root.addView(actions);
         demoButton = button("DEMO IZGLEDA",this::toggleDemo); root.addView(demoButton);
+        gpsButton=button("UKLJUČI GPS DIJELJENJE",this::toggleGps);root.addView(gpsButton);
+        root.addView(button("ZAUSTAVI UWB TRAŽENJE",()->{uwb.stop();status.setText("UWB zaustavljen. GPS/BLE prikaz ostaje dostupan.");}));
         root.addView(button("MOJ PROFIL I MOGUĆNOSTI",this::profileMenu));
+        root.addView(button("POMOĆ / KAKO RADI",this::showHelp));
         hardware = label("",11,MUTED); root.addView(hardware);
         refreshHardware();
-        root.addView(label("PHOENIX ART  /  by Željko Kušter\nv0.2.0-dev • razvojna verzija • samo uz otvorenu aplikaciju",10,MUTED));
+        root.addView(label("PHOENIX ART  /  by Željko Kušter\nv"+appVersion()+" • razvojna verzija • samo uz otvorenu aplikaciju",10,MUTED));
         refreshMembers();
     }
+    String appVersion(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(PackageManager.NameNotFoundException e){return "dev";}}
     void updateGroup() { groupLabel.setText(groupKey == null ? "NEMA GRUPE • OFFLINE" : groupName+"  ✎  •  "+own.name); }
     void saveGroupInfo(){getSharedPreferences("groupInfo",0).edit().putString("name",groupName).putLong("revision",groupRevision).apply();}
-    void refreshHardware(){hardware.setText("TVOJ UREĐAJ: "+own.model+"\nPodržano: "+Capabilities.supported(own.caps)+"\nPreciznost sada: BLE signalni razred; smjer i metri nisu izmjereni.");}
+    void refreshHardware(){hardware.setText("TVOJ UREĐAJ: "+own.model+"\nPodržano: "+Capabilities.supported(own.caps)+"\n"+gps.state+"\n"+uwb.status);}
+    void showHelp(){
+        try(java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(getAssets().open("help.txt"),StandardCharsets.UTF_8))){
+            StringBuilder text=new StringBuilder();String line;while((line=reader.readLine())!=null)text.append(line).append('\n');
+            TextView content=label(text.toString(),14,Color.WHITE);content.setPadding(dp(18),dp(12),dp(18),dp(20));content.setTextIsSelectable(true);
+            ScrollView scroll=new ScrollView(this);scroll.addView(content);new AlertDialog.Builder(this).setTitle("Phoenix Crowd Radar • pomoć").setView(scroll).setPositiveButton("Zatvori",null).show();
+        }catch(java.io.IOException e){status.setText("Pomoć nije dostupna u instalaciji.");}
+    }
+    void toggleGps(){
+        if(gps.sharing){gps.stop();gpsButton.setText("UKLJUČI GPS DIJELJENJE");status.setText("GPS dijeljenje isključeno.");return;}
+        if(!searching){status.setText("Prvo pokreni radar, zatim uključi GPS dijeljenje.");return;}
+        gps.start();gpsButton.setText("ISKLJUČI GPS DIJELJENJE");status.setText(gps.state);
+    }
+    void startUwb(Peer peer){
+        if(!searching||peer.profile==null){status.setText("Pokreni radar i pričekaj razmjenu profila.");return;}
+        selectedSession=peer.id;profiles.focus=peer.id;
+        if((own.caps&peer.profile.caps&Capabilities.UWB)==0){status.setText("Oba telefona moraju imati UWB. GPS/BLE ostaju dostupni.");return;}
+        if(!uwb.permitted()){requestPermissions(new String[]{Manifest.permission.UWB_RANGING},103);return;}
+        uwb.start(ble.sessionId(),peer.id,own,peer.profile);status.setText(uwb.status);
+    }
     void profileMenu(){
         EditText input=new EditText(this);input.setText(own.name);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
         new AlertDialog.Builder(this).setTitle("Moje ime / uređaj").setMessage(own.model+"\nPodržano: "+Capabilities.supported(own.caps)+"\n\nOvo je podrška hardvera, ne potvrda aktivnog preciznog mjerenja.")
@@ -143,7 +189,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             String name=input.getText().toString().trim();if(name.isEmpty())return;groupName=name;groupRevision=Math.max(System.currentTimeMillis(),groupRevision+1);saveGroupInfo();updateGroup();
         }).setNegativeButton("Odustani",null).show();
     }
-    void stop() { searching = false; ble.stop(); if(profiles!=null)profiles.stop(); if (searchButton != null) searchButton.setText("POKRENI RADAR"); }
+    void stop() { searching = false; ble.stop(); if(profiles!=null)profiles.stop();if(gps!=null)gps.stop();if(uwb!=null)uwb.stop();if(gpsButton!=null)gpsButton.setText("UKLJUČI GPS DIJELJENJE"); if (searchButton != null) searchButton.setText("POKRENI RADAR"); }
     boolean allowed() {
         for (String p : REQUIRED) if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) return false;
         return true;
@@ -151,17 +197,23 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     void toggleSearch() {
         if (searching) { stop(); status.setText("Radar zaustavljen."); return; }
         if (groupKey == null) { groupMenu(); return; }
-        if (!allowed()) { requestPermissions(REQUIRED,101); return; }
+        boolean askUwb=getPackageManager().hasSystemFeature("android.hardware.uwb")&&!uwb.permitted()&&!getSharedPreferences("identity",0).getBoolean("uwbAsked",false);
+        if (!allowed()||askUwb) {
+            ArrayList<String> permissions=new ArrayList<>(Arrays.asList(REQUIRED));
+            if(askUwb){permissions.add(Manifest.permission.UWB_RANGING);getSharedPreferences("identity",0).edit().putBoolean("uwbAsked",true).apply();}
+            requestPermissions(permissions.toArray(new String[0]),101);return;
+        }
         pairing.stop(); demo=false; demoButton.setText("DEMO IZGLEDA"); peers.clear(); searching=true; searchButton.setText("ZAUSTAVI"); ble.start(groupKey); if(searching)profiles.start(groupKey,ble.sessionId(),own);
     }
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grants) {
         super.onRequestPermissionsResult(requestCode,permissions,grants);
+        if(requestCode==103){Peer peer=selectedSession==null?null:peers.get(selectedSession);if(uwb.permitted()&&peer!=null)startUwb(peer);else status.setText("UWB dozvola nije odobrena. Koristi GPS/BLE.");return;}
         if(requestCode==102){if(pairPermissions())startPair(pendingPairAction==1);else status.setText("Dozvole za brojčano uparivanje nisu odobrene.");return;}
         if (requestCode == 101 && allowed()) toggleSearch();
-        else status.setText("Za BLE radar odobri obližnje uređaje i preciznu lokaciju. GPS se u ovoj verziji ne dijeli.");
+        else status.setText("Za BLE radar odobri obližnje uređaje i preciznu lokaciju. GPS dijeljenje uključuješ zasebnim gumbom.");
     }
     void toggleDemo() {
-        stop(); demo=!demo; peers.clear(); selected=null;
+        stop(); demo=!demo; peers.clear(); selected=null;selectedSession=null;
         status.setText(demo?"DEMO • simulirane osobe i smjerovi; senzori ne lociraju te osobe.":"Demo isključen. Pokreni BLE radar.");
         demoButton.setText(demo?"ISKLJUČI DEMO":"DEMO IZGLEDA"); refreshMembers(); radar.invalidate();
     }
@@ -225,26 +277,48 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             AlertDialog dialog=new AlertDialog.Builder(this).setTitle("QR pozivnica").setView(scroll).setPositiveButton("Zatvori",null).create();dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);dialog.show();
         }catch(Exception e){status.setText("QR kod nije izrađen.");}
     }
-    void refreshMembers() {
-        memberList.removeAllViews(); long now=SystemClock.elapsedRealtime();
-        peers.values().removeIf(p->now-p.seen>120000);
-        if(demo) {
-            memberLabel.setText("DEMO GRUPA • 3 SIMULIRANE OSOBE");
-            demoRow("01  Marko", "UWB • 12 m • simulirano",CYAN);
-            demoRow("02  Ana", "GPS • 38 m • simulirano",GREEN);
-            demoRow("03  Ivan", "BLE • signal jača • smjer nepoznat",AMBER);
-        } else {
-            memberLabel.setText("ČLANOVI GRUPE • "+peers.size());
-            for(Peer peer:peers.values()) {
-                long age=(now-peer.seen)/1000; TextView row=label(peer.alias+"   "+Math.round(peer.rssi)+" dBm\n"+
-                    (age>12?"ZADNJE VIĐEN • prije "+age+" s":RadarMath.band(peer.rssi)+" • "+RadarMath.trend(peer.baseline,peer.rssi))+"\n"+(peer.profile==null?"Podaci uređaja: čekam razmjenu":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps)+"\n"+Capabilities.pairSummary(own.caps,peer.profile.caps))+"\nTrenutačno: BLE blizina; preciznost u metrima nije izmjerena",13,age>12?MUTED:CYAN);
-                row.setPadding(dp(12),dp(10),dp(12),dp(10)); row.setBackgroundColor(PANEL);
-                row.setOnClickListener(v->{new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(peer.profile==null?"Ime i mogućnosti još nisu razmijenjeni.":
-                    peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps)+"\n"+Capabilities.pairSummary(own.caps,peer.profile.caps)+"\n\nAktivno: BLE signal. UWB/GPS/RTT preciznost još nije izmjerena.").setPositiveButton("Zatvori",null).show();});
-                memberList.addView(row);
-            }
-            if(peers.isEmpty())memberList.addView(label("Nema detektiranih članova. Na oba telefona otvori istu grupu i pokreni radar.",13,MUTED));
+    static final class Estimate {
+        double meters=Double.NaN;Double angle;String distanceSource="BLE",directionSource="bez smjera",note="";
+    }
+    Estimate estimate(Peer peer){
+        Estimate e=new Estimate();long now=SystemClock.elapsedRealtime();
+        boolean uwbLive=selectedSession!=null&&selectedSession==peer.id&&uwb.targetSession==peer.id&&uwb.distance!=null&&Navigation.fresh(uwb.measuredAt,now,3000);
+        if(uwbLive){e.meters=uwb.distance;e.distanceSource="UWB";e.note="Pogreška UWB-a nije prijavljena";
+            if(uwb.azimuth!=null&&Navigation.antennaPosture(backHorizontal,displayRotation)&&Navigation.fresh(postureAt,now,2000)){e.angle=RadarMath.normalize(uwb.azimuth);e.directionSource="UWB kut antene";}
+            else if(uwb.azimuth!=null)e.note="Za UWB kut drži telefon uspravno u portretu";
         }
+        Location mine=gps.fix;long theirAge=Navigation.receivedFixAge(peer.fixAge,0,Math.max(0,now-peer.geoAt));
+        if(gps.sharing&&mine!=null&&peer.hasGeo&&Navigation.validFix(mine.getLatitude(),mine.getLongitude(),mine.getAccuracy(),gps.age())&&Navigation.validFix(peer.lat,peer.lon,peer.error,theirAge)){
+            double d=RadarMath.distance(mine.getLatitude(),mine.getLongitude(),peer.lat,peer.lon),errors=mine.getAccuracy()+peer.error;
+            if(!uwbLive){e.meters=d;e.distanceSource="GPS ~";e.note=String.format(Locale.ROOT,"Procjene pogreške telefona: %.0f + %.0f m",mine.getAccuracy(),peer.error);}
+            boolean consistent=!uwbLive||Navigation.consistent(d,uwb.distance,errors);
+            float declination=gps.declination();
+            if(e.angle==null&&consistent&&heading!=null&&Float.isFinite(declination)&&Navigation.fresh(headingAt,now,2000)&&RadarMath.gpsDirectionUsable(d,mine.getAccuracy(),peer.error,gps.age(),theirAge)){
+                e.angle=Navigation.relative(RadarMath.bearing(mine.getLatitude(),mine.getLongitude(),peer.lat,peer.lon),heading+declination);e.directionSource="GPS + kompas";
+            }else if(!uwbLive&&e.angle==null)e.note+=" • smjer nije dovoljno pouzdan";
+            else if(!consistent&&e.angle==null)e.note="GPS i UWB se ne slažu; GPS smjer skriven";
+        }
+        return e;
+    }
+    String measurementText(Peer peer){Estimate e=estimate(peer);String distance=Double.isFinite(e.meters)?String.format(Locale.ROOT,"%s %.1f m",e.distanceSource,e.meters):"BLE blizina • bez metara";
+        return distance+" • "+e.directionSource+(e.note.isEmpty()?"":"\n"+e.note);}
+    void refreshMembers(){
+        memberList.removeAllViews();long now=SystemClock.elapsedRealtime();peers.values().removeIf(p->now-p.seen>120000);
+        if(demo){memberLabel.setText("DEMO GRUPA • 3 SIMULIRANE OSOBE");demoRow("01  Marko","UWB • 12 m • simulirano",CYAN);demoRow("02  Ana","GPS • 38 m • simulirano",GREEN);demoRow("03  Ivan","BLE • smjer nepoznat",AMBER);return;}
+        memberLabel.setText("ČLANOVI GRUPE • "+peers.size());int number=0;
+        for(Peer peer:peers.values()){
+            long age=(now-peer.seen)/1000;String details=peer.profile==null?"Profil: čekam razmjenu / provjeri istu verziju aplikacije":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps);
+            TextView row=label(String.format(Locale.ROOT,"%02d  ",++number)+peer.alias+"   "+Math.round(peer.rssi)+" dBm\n"+(age>12?"ZADNJE VIĐEN • prije "+age+" s":RadarMath.band(peer.rssi))+"\n"+measurementText(peer)+"\n"+details,13,age>12?MUTED:CYAN);
+            row.setPadding(dp(12),dp(10),dp(12),dp(10));row.setBackgroundColor(PANEL);
+            row.setOnClickListener(v->{selectedSession=peer.id;profiles.focus=peer.id;
+                new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\nZa UWB na oba telefona odaberite jedno drugo i pritisnite Traži UWB. Držite telefone uspravno u portretu.")
+                    .setPositiveButton("Traži UWB",(d,w)->startUwb(peer)).setNeutralButton("Samo odaberi",(d,w)->radar.invalidate()).setNegativeButton("Zatvori",null).show();});
+            memberList.addView(row);
+        }
+        if(peers.isEmpty())memberList.addView(label("Nema članova. Na oba telefona odobri dozvole, otvori istu grupu i pokreni radar.",13,MUTED));
+        boolean hasMeters=false;for(Peer peer:peers.values())if(Double.isFinite(estimate(peer).meters))hasMeters=true;
+        rangeMode.setText(hasMeters?"METRI IZ MJERENJA • TOČKA SAMO UZ VALJAN SMJER":"JAČINA BLE SIGNALA • BEZ METARA I SMJERA");
+        refreshHardware();
     }
     void demoRow(String name,String info,int color) {
         TextView v=label(name+"\n"+info,13,color);v.setPadding(dp(12),dp(8),dp(12),dp(8));v.setBackgroundColor(PANEL);
@@ -256,7 +330,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         if(sensor!=null)sensors.registerListener(this,sensor,SensorManager.SENSOR_DELAY_UI);handler.post(tick);}
     @Override protected void onPause(){visible=false;handler.removeCallbacks(tick);stop();pairing.stop();if(sensors!=null)sensors.unregisterListener(this);super.onPause();}
     @Override protected void onDestroy(){stop();pairing.stop();handler.removeCallbacksAndMessages(null);super.onDestroy();}
-    @Override public void onAccuracyChanged(Sensor sensor,int accuracy){if(accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE)heading=null;}
+    @Override public void onAccuracyChanged(Sensor sensor,int accuracy){if(accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE){heading=null;headingAt=0;}}
     @Override public void onSensorChanged(SensorEvent event){
         if(event.accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE){heading=null;return;}
         float[] rotation=new float[9],remapped=new float[9],orientation=new float[3];SensorManager.getRotationMatrixFromVector(rotation,event.values);
@@ -266,7 +340,12 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         else if(display==Surface.ROTATION_180){x=SensorManager.AXIS_MINUS_X;y=SensorManager.AXIS_MINUS_Y;}
         else if(display==Surface.ROTATION_270){x=SensorManager.AXIS_MINUS_Y;y=SensorManager.AXIS_X;}
         SensorManager.remapCoordinateSystem(rotation,x,y,remapped);SensorManager.getOrientation(remapped,orientation);
-        heading=(float)RadarMath.normalize(Math.toDegrees(orientation[0]));radar.invalidate();
+        displayRotation=display;postureAt=SystemClock.elapsedRealtime();
+        backHorizontal=Math.hypot(remapped[2],remapped[5]);
+        double east,north;
+        if(backHorizontal>.7){east=-remapped[2];north=-remapped[5];}else{east=remapped[1];north=remapped[4];}
+        if(Math.hypot(east,north)<.25){heading=null;headingAt=0;}else{heading=(float)RadarMath.normalize(Math.toDegrees(Math.atan2(east,north)));headingAt=SystemClock.elapsedRealtime();}
+        radar.invalidate();
     }
     final class Radar extends View {
         final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -285,16 +364,20 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
                 text(c,"03 • BEZ SMJERA",x,y+r*.64f,9,AMBER);
                 text(c,"DEMO",x,y-r-dp(15),12,AMBER);
             }else if(searching||!peers.isEmpty()){
-                for(Peer peer:peers.values()){
-                    if(SystemClock.elapsedRealtime()-peer.seen>12000)continue;
-                    float band=peer.rssi>=-60?.25f:peer.rssi>=-75?.5f:.78f;
-                    p.setStyle(Paint.Style.STROKE);p.setColor(CYAN);p.setAlpha(85);p.setStrokeWidth(dp(5));c.drawCircle(x,y,r*band,p);p.setAlpha(255);
+                double maximum=0;for(Peer peer:peers.values()){Estimate e=estimate(peer);if(Double.isFinite(e.meters))maximum=Math.max(maximum,e.meters);}
+                double scale=Math.max(10,Math.ceil(maximum/10)*10);int index=0;
+                for(Peer peer:peers.values()){index++;Estimate e=estimate(peer);
+                    if(Double.isFinite(e.meters)){float radius=(float)(r*Math.min(1,e.meters/scale));int color=e.distanceSource.equals("UWB")?CYAN:GREEN;
+                        if(e.angle!=null){dot(c,x,y,radius,e.angle.floatValue(),String.format(Locale.ROOT,"%02d",index),color);}
+                        else{p.setStyle(Paint.Style.STROKE);p.setColor(color);p.setAlpha(100);p.setStrokeWidth(dp(2));c.drawCircle(x,y,radius,p);p.setAlpha(255);}
+                    }else if(maximum==0&&SystemClock.elapsedRealtime()-peer.seen<=12000){float band=peer.rssi>=-60?.25f:peer.rssi>=-75?.5f:.78f;
+                        p.setStyle(Paint.Style.STROKE);p.setColor(AMBER);p.setAlpha(65);p.setStrokeWidth(dp(4));c.drawCircle(x,y,r*band,p);p.setAlpha(255);}
                 }
-                text(c,"SMJER NEPOZNAT",x,y-r*.62f,10,MUTED);
+                text(c,maximum>0?String.format(Locale.ROOT,"RADIJUS %.0f m",scale):"BLE • BEZ METARA",x,y-r-dp(15),10,MUTED);
             }else text(c,"RADAR ZAUSTAVLJEN",x,y-r*.55f,10,MUTED);
             p.setStyle(Paint.Style.FILL);p.setColor(CYAN);c.drawCircle(x,y,dp(7),p);
             text(c,"TI",x,y+dp(25),10,CYAN);
-            text(c,heading==null?"KOMPAS —":String.format(Locale.ROOT,"KOMPAS %03.0f° MAG",heading),x,y+r+dp(24),10,MUTED);
+            text(c,heading==null?"KOMPAS —":String.format(Locale.ROOT,"NAPRIJED %03.0f° MAG",heading),x,y+r+dp(24),10,MUTED);
         }
         void dot(Canvas c,float x,float y,float radius,float angle,String name,int color){double a=Math.toRadians(angle);float px=x+(float)Math.sin(a)*radius,py=y-(float)Math.cos(a)*radius;
             p.setStyle(Paint.Style.FILL);p.setColor(color);p.setAlpha(35);c.drawCircle(px,py,dp(16),p);p.setAlpha(255);c.drawCircle(px,py,dp(6),p);text(c,name,px,py-dp(13),10,color);}

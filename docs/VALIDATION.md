@@ -13,3 +13,7 @@ Aktualni Android build i lint izvršavaju se u GitHub Actions: https://github.co
 - Android build/lint nisu izvršeni: nema Android SDK-a ni Gradlea u ovom okruženju.
 - Nije potvrđena instalacija, QR kamera, Nearby autentifikacija/prijenos, GATT čitanje dugih vrijednosti, BLE oglašavanje ni stvarno UWB mjerenje.
 - GitHub repozitorij nije stvoren i CI nije izvršen.
+
+## Lokalna provjera 0.3
+
+40 core checks prolazi; parser je obradio 13 produkcijskih Java datoteka. Help header i svi obvezni odjeljci prolaze. Puni Android build i fizički rad ovih izmjena provjeravaju se odvojeno.

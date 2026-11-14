@@ -12,8 +12,8 @@ public final class Capabilities {
     }
     public static String pairSummary(int mine,int peer) {
         int common=mine&peer;
-        if((common&UWB)!=0)return "Zajednički UWB hardver • precizno mjerenje još nije integrirano";
-        if((common&(AWARE|RTT))==(AWARE|RTT))return "Zajednički Wi-Fi Aware/RTT hardver • mjerenje još nije integrirano";
+        if((common&UWB)!=0)return "Zajednički UWB hardver • podrška hardvera ne jamči aktivnu sesiju";
+        if((common&(AWARE|RTT))==(AWARE|RTT))return "Zajednički Wi-Fi Aware/RTT hardver • RTT mjerenje nije integrirano";
         return "BLE blizina • nema izmjerenog smjera ni točne udaljenosti";
     }
 }
