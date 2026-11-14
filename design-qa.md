@@ -1,3 +1,17 @@
+# Provjera 0.6.0-dev — 14. 11. 2026.
+
+Produkcijski commit `45b7f393f2f89334afac62b0c6f111bbe351ae65`; GitHub Actions run `43645804894`, job `132603168191`: uspjeh. Android assembleDebug i lintDebug prošli. Prošlo 40 CoreTest + 78 FeatureTest provjera, Node testovi stvarnog UI skripta i svih šest Android testova (bez preskakanja).
+
+Android emulator API 35 / Pixel 6: kreiranje/QR/uvoz, početni postupak bez grupe, zabrane Nearby/AR bez pokrenutog radara, svježina Nearby člana bez BLE oglasa i stvarno CameraX povezivanje/oslobađanje stražnje kamere s brzim zatvaranjem/ponovnim otvaranjem. CI izričito koristi emulirane kamere i izolira raniji Pixel Launcher ANR. Ispravljen je asinkroni Dialog onDismiss koji je mogao zatvoriti novu AR instancu.
+
+Vizualno pregledane snimke `dashboard.png` i `ar-hud.png` iz uspješnog UI artefakta `14133802166`. Radar zadržava referentni cyber prikaz, dinamičku skalu, oznake članova i zasebnu stiliziranu AR kontrolu. AR HUD pokazuje ime sintetičkog testnog člana i izostanak izmjerenog smjera bez izmišljene strelice. Kamera je u testu povezana CameraX-om; emulirana pozadina snimke je crna i snimka nije dokaz stvarnog video sadržaja ni kalibracije na telefonu.
+
+APK artefakt `14134386153`: ZIP SHA256 `d028f7e3b99c43e82771c1fccdb0a7fd3080292c183db073e1ece11d7e8387fa`. Izdvojeni APK ima 17 433 552 bajta, SHA256 `be9d58bc5fe6adc79872d77dbbdb2dd7faebb64b24f167bdea4c1ca48d0d5974`. Help VERSION i zapakirani novi UI provjereni u APK-u. Razvojni potpis ostaje isti kao ranije.
+
+Neprovjereno fizičkim testom: veći domet, stvarni izbor Wi-Fi medija, BT/Wi-Fi koegzistencija, dostava između dva telefona i preciznost UWB/kamera poravnanja. Nearby pruža jedan dodatni par; nema Wi-Fi mesha ni 3D sidra osobe. AR je shematski smjer preko CameraX pregleda, ne projekcija položaja na sliku.
+
+---
+
 # Phoenix Crowd Radar 0.5.1 — završna provjera
 
 - Produkcijski commit: `61275239fc249130623b079c8406433b37d0f16a`.
