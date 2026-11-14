@@ -44,7 +44,12 @@ public class EnrollmentTest {
             androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getUiAutomation().waitForIdle(500,5000);
             android.graphics.Bitmap bitmap=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(bitmap);
             android.content.Context context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();
-            try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(context.getExternalFilesDir(null),"dashboard.png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}
+            android.content.ContentValues values=new android.content.ContentValues();
+            values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"dashboard.png");
+            values.put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png");
+            values.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/Phoenix");
+            android.net.Uri uri=context.getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values);assertNotNull(uri);
+            try(java.io.OutputStream out=context.getContentResolver().openOutputStream(uri)){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}
         }
     }
     @Test public void startWithoutGroupHasSpecificOnboarding(){

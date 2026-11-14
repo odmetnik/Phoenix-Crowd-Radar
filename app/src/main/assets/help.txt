@@ -49,11 +49,13 @@ Imena i mogućnosti su podaci koje prijavljuje aplikacija drugog člana, nisu do
 Koordinate i UWB ključeve sesije ne zapisujemo u datoteke, izvještaje ili logove. Nakon Stop/GPS isključeno novi podaci se ne šalju; zadnji primljeni podatak na drugom telefonu prestaje vrijediti prema pravilima starosti. Aplikacija nema mesh, server za udaljeno praćenje, PING niti rad u pozadini. Ne jamči pokrivenost cijelog sajma. Izrada APK-a i testovi ne potvrđuju fizičku UWB kompatibilnost.
 
 PROMJENE — 0.4.0-dev
+• Veličina kružnog prikaza usklađena je s užim radarom iz reference; kartice ostaju pune širine.
 • Lokalno uključen font Orbitron; stariji WebView ima zamjenski način crtanja oznaka.
 • Novi cyber prikaz prema referentnoj slici: stupnjevi, animirani snop, svjetleći okvir, kartice i donja navigacija.
 • RADAR i GRUPA imaju različite funkcije. Dodan postupak kreiranja/pridruživanja pri prvom pokretanju.
 • QR i poziv brojem nude kreiranje grupe ako nedostaje. Brojčano dodavanje prikazuje dijalog čekanja i jasne upute za oba telefona.
 • Radio sesije zaustavljaju se pri izlasku aplikacije iz vidljivog stanja, umjesto pri svakom privremenom gubitku fokusa tijekom sistemskih dijaloga.
+• Greška BLE-a zaustavlja i povezane GPS/UWB sesije; povratak nakon izlaska jasno prikazuje zaustavljanje.
 • Dodani provjera sistemske Lokacije za BLE i vidljiviji kodovi grešaka uparivanja/spremanja.
 • Dodan zvučni ping kroz šifriranu razmjenu stanja, bez tvrdnje o potvrđenoj dostavi.
 • Help ažuriran zajedno s aplikacijom; provjera verzije i promjene pomoći ostaje obavezna.

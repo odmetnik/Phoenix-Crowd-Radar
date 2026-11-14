@@ -112,7 +112,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             }
             public void status(String message) {
                 status.setText(message);
-                if (!message.startsWith("Tražim")) { searching=false; searchButton.setText("POKRENI RADAR"); }
+                if (!message.startsWith("Tražim")) stop();
             }
         });
         build();
@@ -376,7 +376,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         Sensor sensor=sensors==null?null:sensors.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         if(sensor!=null)sensors.registerListener(this,sensor,SensorManager.SENSOR_DELAY_UI);handler.post(tick);}
     @Override protected void onPause(){visible=false;handler.removeCallbacks(tick);if(dashboard!=null)dashboard.view.onPause();if(sensors!=null)sensors.unregisterListener(this);super.onPause();}
-    @Override protected void onStop(){stop();pairing.stop();renderDashboard();super.onStop();}
+    @Override protected void onStop(){boolean active=searching||pairing.active;stop();pairing.stop();if(active)status.setText("Radar i povezivanje zaustavljeni izlaskom iz aplikacije.");renderDashboard();super.onStop();}
     @Override protected void onDestroy(){stop();pairing.stop();handler.removeCallbacksAndMessages(null);if(dashboard!=null)dashboard.destroy();super.onDestroy();}
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy){if(accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE){heading=null;headingAt=0;}}
     @Override public void onSensorChanged(SensorEvent event){

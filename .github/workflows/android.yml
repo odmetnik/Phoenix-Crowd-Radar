@@ -39,11 +39,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: |
-            test_status=0
-            gradle --no-daemon :app:connectedDebugAndroidTest || test_status=$?
-            adb pull /sdcard/Android/data/hr.phoenixart.crowdradar/files/dashboard.png dashboard.png || true
-            exit "$test_status"
+          script: bash tools/emulator-check.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
