@@ -62,7 +62,7 @@ final class BlePresence {
         advertising = current;
         // Primary: flags + 128-bit service UUID. Scan response: 128-bit service + 12-byte authenticated presence = 30 bytes.
         advertiser.startAdvertising(new AdvertiseSettings.Builder().setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM).setConnectable(true).build(),
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH).setConnectable(true).build(),
             new AdvertiseData.Builder().addServiceUuid(service).build(),
             new AdvertiseData.Builder().addServiceData(service, Presence.packet(secret, sessionId, System.currentTimeMillis())).build(), current);
     }

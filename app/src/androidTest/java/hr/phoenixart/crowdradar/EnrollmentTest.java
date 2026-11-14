@@ -82,6 +82,23 @@ public class EnrollmentTest {
             try(java.io.OutputStream out=context.getContentResolver().openOutputStream(uri)){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}
         }
     }
+    @Test public void nearbyAndArGuardsDoNotStartWithoutRadar(){
+        try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+            awaitFocus(scenario);
+            scenario.onActivity(a->{a.stop();a.demo=false;a.toggleNearby();assertFalse(a.nearby.active);assertTrue(a.status.getText().toString().contains("Prvo pokreni"));a.openAr();assertFalse(a.ar.open);assertTrue(a.status.getText().toString().contains("Pokreni radar"));});
+        }
+    }
+    @Test public void nearbyPeerRemainsFreshWithoutBleAdvertisement(){
+        try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+            scenario.onActivity(a->{a.stop();MainActivity.Peer peer=new MainActivity.Peer(123,-127);a.peers.put(123,peer);
+                assertFalse(a.peerFresh(peer));assertFalse(a.canMessage(peer));
+                a.nearby.active=true;a.nearby.authenticated=true;a.nearby.remote=123;a.nearby.lastReceived=android.os.SystemClock.elapsedRealtime();
+                assertTrue(a.peerFresh(peer));assertTrue(a.canMessage(peer));
+                a.nearby.lastReceived=android.os.SystemClock.elapsedRealtime()-7000;assertFalse(a.peerFresh(peer));assertFalse(a.canMessage(peer));
+                a.nearby.stop();
+            });
+        }
+    }
     @Test public void startWithoutGroupHasSpecificOnboarding(){
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             awaitFocus(scenario);

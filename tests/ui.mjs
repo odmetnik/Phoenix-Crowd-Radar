@@ -1,6 +1,6 @@
 import {createRequire} from 'node:module';import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
 class Element{constructor(){this.textContent='';this.hidden=false;this.children=[];this.dataset={};this.classList={toggle(){}};this.style={setProperty(){}};}append(...v){this.children.push(...v);}replaceChildren(){this.children=[];}setAttribute(){}getContext(){return {};}}
-const ids=['scope','badge','event','status','start','demo','version','gps','hardware','groupInfo','pingTarget','scale','members','radarPage','groupPage','pingPage','mailStatus','pingLabel'];const elements=Object.fromEntries(ids.map(id=>[id,new Element()]));const tabs=['radar','group','ping'].map(tab=>Object.assign(new Element(),{dataset:{tab}}));let click;let sent=[];
+const ids=['scope','badge','event','status','start','demo','version','gps','hardware','groupInfo','pingTarget','scale','members','radarPage','groupPage','pingPage','mailStatus','pingLabel','nearby','nearStatus'];const elements=Object.fromEntries(ids.map(id=>[id,new Element()]));const tabs=['radar','group','ping'].map(tab=>Object.assign(new Element(),{dataset:{tab}}));let click;let sent=[];
 const ops=[];elements.scope.clientWidth=400;elements.scope.getContext=()=>new Proxy({},{get:(o,key)=>o[key]??((...args)=>ops.push([key,...args])),set:(o,k,v)=>{o[k]=v;return true;}});let scheduled;let clock=1000;
 const document={getElementById:id=>elements[id],createElement:()=>new Element(),querySelectorAll:()=>tabs,addEventListener:(event,fn)=>{if(event==='click')click=fn;}};
 const context=vm.createContext({document,window:{Phoenix:{action:(a,v)=>sent.push([a,v])},scrollTo(){}},matchMedia:()=>({matches:false}),performance:{now:()=>clock},requestAnimationFrame:fn=>{scheduled=fn;return 0;},cancelAnimationFrame(){},console});
@@ -11,7 +11,7 @@ state({members:[{id:3,name:'<img src=x onerror=bad()>',source:'UWB',meters:0,ang
 state({members:[{id:3,name:'Ana',source:'GPS',meters:38,angle:null,stale:true}]});assert.equal(elements.members.children[0].children[2].children[1].textContent,'ZADNJE VIĐEN');assert.doesNotMatch(elements.scale.textContent,/RADIJUS/);
 state({members:[{id:2,name:'Ivan',source:'BLE',meters:null,angle:null}]});assert.match(elements.members.children[0].children[2].children[1].textContent,/SMJER NEPOZNAT/);
 for(const tab of tabs){click({target:{closest:()=>tab}});assert.equal(elements[tab.dataset.tab+'Page'].hidden,false);assert.equal(ids.filter(i=>i.endsWith('Page')&&!elements[i].hidden).length,1);}
-for(const action of ['radar','invite','scan','host','join','create','gps','help','message','inbox']){click({target:{closest:()=>({dataset:{action}})}});assert.equal(sent.at(-1)[0],action);}
+for(const action of ['radar','invite','scan','host','join','create','gps','help','message','inbox','nearby','ar']){click({target:{closest:()=>({dataset:{action}})}});assert.equal(sent.at(-1)[0],action);}
 state({demo:true,members:[]});assert.equal(elements.badge.textContent,'DEMO / KONCEPT');state({running:false,demo:false});assert.equal(elements.badge.textContent,'RADAR ZAUSTAVLJEN');console.log('PASS: UI navigation, native actions, measured zero, stale state, unknown bearing and safe member names');
 
 const geo=createRequire(import.meta.url)('../app/src/main/assets/ui/geometry.js');

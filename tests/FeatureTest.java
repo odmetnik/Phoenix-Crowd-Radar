@@ -6,6 +6,24 @@ public class FeatureTest {
  static int checks;
  static void check(boolean value){checks++;if(!value)throw new AssertionError("Feature check "+checks);}
  public static void main(String[] args)throws Exception{
+  byte[] key=new byte[32];new java.security.SecureRandom().nextBytes(key);byte[] other=key.clone();other[0]^=1;
+  byte[] clear="GPS / UWB / poruka — Željko".getBytes(StandardCharsets.UTF_8);byte[] envelope=NearCrypto.seal(key,clear);
+  check(Arrays.equals(clear,NearCrypto.open(key,envelope)));check(!NearCrypto.service(key).equals(NearCrypto.service(other)));
+  check(!Arrays.equals(envelope,NearCrypto.seal(key,clear)));
+  try{NearCrypto.open(other,envelope);throw new AssertionError("Wrong group accepted");}catch(javax.crypto.AEADBadTagException expected){checks++;}
+  byte[] tampered=envelope.clone();tampered[tampered.length-1]^=1;
+  try{NearCrypto.open(key,tampered);throw new AssertionError("Tamper accepted");}catch(javax.crypto.AEADBadTagException expected){checks++;}
+  try{ProfileCrypto.open(key,envelope);throw new AssertionError("Cross-transport frame accepted");}catch(javax.crypto.AEADBadTagException expected){checks++;}
+  for(byte[] invalid:new byte[][]{new byte[0],new byte[27],new byte[4097]})try{NearCrypto.open(key,invalid);throw new AssertionError("Invalid frame accepted");}catch(IllegalArgumentException expected){checks++;}
+  check(NearCrypto.seal(key,new byte[4068]).length==4096);
+  try{NearCrypto.seal(key,new byte[4069]);throw new AssertionError("Oversize clear accepted");}catch(IllegalArgumentException expected){checks++;}
+  check(ReplyWindow.accepts("fresh","fresh",2,2,1,1,1000,7000));
+  check(!ReplyWindow.accepts("fresh","replay",2,2,1,1,1000,2000));check(!ReplyWindow.accepts(null,"fresh",2,2,1,1,1000,2000));
+  check(!ReplyWindow.accepts("fresh","fresh",2,3,1,1,1000,2000));check(!ReplyWindow.accepts("fresh","fresh",2,2,1,3,1000,2000));
+  check(!ReplyWindow.accepts("fresh","fresh",2,2,1,1,1000,7001));check(!ReplyWindow.accepts("fresh","fresh",2,2,1,1,1000,999));
+  check(ArGuide.signed(359)==-1);check(ArGuide.signed(181)==-179);check(ArGuide.signed(-90)==-90);
+  check(ArGuide.turn(359).equals("ISPRED TEBE"));check(ArGuide.turn(270).equals("OKRENI ULIJEVO"));check(ArGuide.turn(90).equals("OKRENI UDESNO"));
+  check(ArGuide.turn(180).contains("IZA TEBE"));check(ArGuide.turn(Double.NaN).contains("NIJE IZMJEREN"));check(Double.isNaN(ArGuide.position(Double.NaN)));
   ShortMessages a=new ShortMessages(),b=new ShortMessages();
   ShortMessages.Entry sent=a.send(22,"Vlado","Kod glavnog ulaza.",1000);
   check(ShortMessages.validId(sent.id));check(a.pending(1001)!=null);
@@ -26,7 +44,7 @@ public class FeatureTest {
   for(String text:new String[]{"漢".repeat(48),"\\\"".repeat(24),"😀".repeat(24)}){
    check(ShortMessages.validText(text));String escaped=text.replace("\\","\\\\").replace("\"","\\\"");
    String json="{\"kind\":\"m\",\"session\":-2147483648,\"n\":\"AAAAAAAAAAAAAAAAAAAAAA==\",\"acks\":["+ack+"],\"msg\":{\"id\":\"1234567890123456\",\"to\":-2147483648,\"text\":\""+escaped+"\"}}";
-   byte[] clear=json.getBytes(StandardCharsets.UTF_8),sealed=ProfileCrypto.seal(new byte[32],clear);check(sealed.length<=512);check(Arrays.equals(clear,ProfileCrypto.open(new byte[32],sealed)));
+   byte[] clearMail=json.getBytes(StandardCharsets.UTF_8),sealed=ProfileCrypto.seal(new byte[32],clearMail);check(sealed.length<=512);check(Arrays.equals(clearMail,ProfileCrypto.open(new byte[32],sealed)));
   }
   ShortMessages full=new ShortMessages();for(int i=0;i<512;i++)full.receive(11,22,22,String.format("%016d",i),"X","Test",20000+i);
   check(full.history(21000).size()==20);check(full.receive(11,22,22,"9999999999999999","X","Novi",21001)==null);

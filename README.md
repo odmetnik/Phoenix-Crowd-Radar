@@ -1,15 +1,16 @@
-# Phoenix Crowd Radar — 0.5.1-dev
+# Phoenix Crowd Radar — 0.6.0-dev
 
 Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GPS razmjena i UWB sesija za odabrani par. Phoenix Art / by Željko Kušter.
 
 **Aktualna kompilacija i Android lint: GitHub Actions. Fizička UWB/BLE/GPS kompatibilnost i preciznost još nisu potvrđeni na telefonima.** APK je razvojni i zahtijeva Android 12+.
 
-## Što radi 0.5
+## Što radi 0.6
 
 - Dinamički AUTO/FOKUS zum, glatki prijelazi, metarske oznake i vidljivi bliski članovi. Bez smjera prikazujemo krug i upozorenje.
-- Kratke Bluetooth poruke do 48 znakova s potvrdom primitka, zasebnim šifriranim kanalom i prolaznom poviješću. Oba telefona trebaju 0.5+; Wi-Fi transport poruka nije ugrađen.
+- Kratke Bluetooth poruke do 48 znakova s potvrdom primitka, zasebnim šifriranim kanalom i prolaznom poviješću. BLE je kompatibilan s 0.5+, dodatni Nearby BT/Wi-Fi kanal traži oba 0.6+.
 - Lokalno RMS očitanje i nisko/povišeno linearno ubrzanje; mala vrijednost nije dokaz mirovanja. Ne računa položaj druge osobe.
-- AR strelice i imena su sljedeća faza, još nisu ugrađeni.
+- Dodatna Nearby P2P_POINT_TO_POINT veza za jedan par uz postojeći BLE. Profil, GPS, UWB parametri, PING i poruke rade preko oba puta. Stvarni medij bira Google SDK; ne prikazujemo izmišljeni Wi-Fi RSSI ili zajamčen domet.
+- Eksperimentalni CameraX AR HUD: kamera uživo s imenima i shematskim azimutnim strelicama samo za svježe izmjerene smjerove. To nije kalibrirana 3D oznaka na osobi.
 - Offline HTML/Canvas cyber sučelje prema referenci, animirani radar i odvojene kartice RADAR / GRUPA / PING.
 - Jasno kreiranje/pridruživanje pri prvom pokretanju; QR i brojčana pozivnica nude kreiranje grupe ako nedostaje.
 - Kreiranje grupe, promjenjiv naziv, korisnička imena i kartice mogućnosti telefona.
@@ -18,7 +19,7 @@ Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GP
 - Živa šifrirana GATT veza: profili i stanje odvojeni su, svako čitanje vezano je uz nov nasumičan izazov. Do šest podatkovnih peerova; do 24 presence ID-a.
 - GPS/GNSS prikupljanje preko Android GPS providera. Dijeljenje se uključuje zasebnim gumbom na svakom telefonu. Svježina i procjena pogreške putuju s lokacijom.
 - Udaljenost i smjer iz koordinata samo kada su lokacije dovoljno dobre. Za smjer koristimo pouzdanu orijentaciju i deklinaciju prema pravom sjeveru. Previše nesiguran smjer je skriven.
-- Jetpack UWB 1.0.0 za jednu odabranu osobu. Oba korisnika odabiru jedno drugo i pokreću UWB. Uloge su automatske, prednost ima zajednički provisioned STS, a zatim zajednički static STS profil. Random ključ i parametri sesije prenose se šifriranim grupnim GATT kanalom.
+- Jetpack UWB 1.0.0 za jednu odabranu osobu. Oba korisnika odabiru jedno drugo i pokreću UWB. Uloge su automatske, prednost ima zajednički provisioned STS, a zatim zajednički static STS profil. Random ključ i parametri sesije prenose se šifriranim grupnim GATT ili Nearby kanalom.
 - UWB udaljenost i kut pojavljuju se tek nakon stvarnog svježeg API rezultata. UWB kut prikazuje se samo u podržanom uspravnom portretu; referenca je os antene iza stražnje strane telefona. Nije automatski GPS kompas. Test smjera konkretnog modela ostaje obvezan.
 - Svjež UWB ima prednost za udaljenost, zatim valjan GPS, zatim BLE bez metara. GPS se ne koristi za smjer ako se značajno ne slaže s UWB udaljenošću. UWB zastarijeva nakon 3 s, GPS nakon 10 s.
 - Pomoć je unutar aplikacije, uključuje sve tehnologije, ograničenja, privatnost i promjene verzije.
@@ -26,12 +27,14 @@ Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GP
 ## Korištenje
 
 1. Upiši svoje ime, kreiraj grupu i dodaj kolege QR-om ili brojčanom potvrdom.
-2. Na oba telefona uključi Bluetooth i sistemsku Lokaciju, odobri dozvole i pokreni radar.
+2. Na oba telefona uključi Bluetooth, Wi-Fi i sistemsku Lokaciju, odobri dozvole i pokreni radar.
 3. Za GPS na oba telefona zasebno uključi GPS dijeljenje i pričekaj dobar satelitski signal.
 4. Za UWB na oba kompatibilna telefona uključi UWB u sustavu, dodirni kolegu i odaberi **Traži UWB**. Drži telefon uspravno u portretu. Oba odabira napravi unutar približno 25 s.
 5. Pomoć objašnjava točke, krugove bez smjera, izvore, pogreške i domet.
 
 Aplikacija radi samo dok je otvorena. Zaključavanje/drugi app/Stop zaustavlja GPS, Bluetooth i UWB. GPS sam ne proširuje radijski domet. Nema mesha ni servera za udaljeno praćenje. Zvučni PING odabranom članu šalje se lokalnom vezom; nema potvrde dostave. Wi-Fi Aware/RTT su samo detekcija podrške; Wi-Fi RTT mjerenje još nije implementirano. Nearby numeričko uparivanje koristi Bluetooth/Wi-Fi i Google Play usluge; ne treba internetski router. Google SDK ima vlastitu analitiku.
+
+Detalji veze i pregled AR projekata: [docs/NEARBY_AR.md](docs/NEARBY_AR.md).
 
 ## Help pri svakoj nadogradnji
 

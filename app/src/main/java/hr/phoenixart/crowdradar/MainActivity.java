@@ -47,6 +47,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     boolean hadCompassAccuracy;
     String wireProblem="";
     NumberPairing pairing;
+    NearbyLink nearby;ArOverlay ar;boolean nearWanted=true;
     DeviceProfile own;
     String groupName;
     long groupRevision;
@@ -103,6 +104,17 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         profiles.mailSupport=(id,supported)->{Peer peer=peers.get(id);if(peer!=null)peer.canMessage=supported;};
         profiles.mailSupplier=this::messageWire;
         profiles.mailListener=(id,data,latency)->receiveMessages(id,data);
+        nearby=new NearbyLink(this,new NearbyLink.Listener(){
+            public JSONObject snapshot()throws Exception{return new JSONObject().put("profile",own.json()).put("group",groupName).put("revision",groupRevision).put("state",profiles.stateSupplier.get()).put("mail",messageWire());}
+            public void received(int id,JSONObject frame,long latency){
+                if(!searching)return;
+                try{DeviceProfile profile=DeviceProfile.parse(frame.getJSONObject("profile"));Peer peer=peers.get(id);
+                    if(peer==null){if(peers.size()>=24)return;peer=new Peer(id,-127);peers.put(id,peer);}
+                    profiles.listener.profile(id,profile,frame.optString("group"),frame.optLong("revision"));
+                    profiles.stateListener.state(id,frame.getJSONObject("state"),latency);receiveMessages(id,frame.getJSONObject("mail"));
+                }catch(Exception ignored){}
+            }
+        });ar=new ArOverlay(this);
         pairing=new NumberPairing(this,new NumberPairing.Listener(){
             public String invitation(){return invitationToken();}
             public boolean received(String token){return receiveInvite(token);}
@@ -118,7 +130,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             }
             public void status(String message) {
                 status.setText(message);
-                if (!message.startsWith("Tražim")) stop();
+                if (!message.startsWith("Tražim")){if(nearby.active){ble.stop();profiles.stop();}else stop();}
             }
         });
         build();
@@ -164,6 +176,8 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             case "ping":sendPing();break;
             case "message":composeMessage();break;
             case "inbox":showMessages();break;
+            case "nearby":toggleNearby();break;
+            case "ar":openAr();break;
             default:break;
         }
     }
@@ -173,16 +187,16 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             JSONObject data=new JSONObject().put("group",groupName).put("hasGroup",groupKey!=null).put("own",own.name)
                 .put("demo",demo).put("running",searching).put("status",status.getText()).put("version",appVersion())
                 .put("heading",heading==null?JSONObject.NULL:heading).put("gps",gps.sharing).put("hardware",hardware.getText())
-                .put("mailStatus",mailSummary()).put("unread",unreadMessages).put("motion",motionSummary())
+                .put("nearby",nearWanted).put("nearStatus",nearby.status).put("mailStatus",mailSummary()).put("unread",unreadMessages).put("motion",motionSummary())
                 .put("selected",selectedSession==null?JSONObject.NULL:selectedSession);
             org.json.JSONArray members=new org.json.JSONArray();
             if(demo){members.put(new JSONObject().put("id",1).put("name","Marko").put("source","UWB").put("meters",12).put("angle",50));
                 members.put(new JSONObject().put("id",2).put("name","Ana").put("source","GPS").put("meters",38).put("angle",224));
                 members.put(new JSONObject().put("id",3).put("name","Ivan").put("source","BLE").put("meters",JSONObject.NULL).put("angle",JSONObject.NULL));}
             else for(Peer peer:peers.values()){
-                Estimate e=estimate(peer);boolean stale=SystemClock.elapsedRealtime()-peer.seen>12000;
+                Estimate e=estimate(peer);boolean stale=!peerFresh(peer);
                 members.put(new JSONObject().put("id",peer.id).put("name",peer.alias).put("source",e.distanceSource.replace(" ~",""))
-                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale).put("direction",e.directionSource).put("note",e.note));
+                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale).put("link",nearby.live(peer.id)?"Nearby BT/Wi-Fi":peer.canMessage?"BLE GATT":"BLE oglas").put("direction",e.directionSource).put("note",e.note));
             }
             Peer target=selectedSession==null?null:peers.get(selectedSession);data.put("selectedName",target==null?"":target.alias);
             data.put("members",members);dashboard.render(data);
@@ -218,14 +232,14 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     }
     void selectPeer(int id){
         if(demo){status.setText("DEMO • odabir je simuliran.");return;}
-        Peer peer=peers.get(id);if(peer==null)return;selectedSession=id;profiles.focus=id;renderDashboard();
-        String details="BLE signal: "+Math.round(peer.rssi)+" dBm • "+RadarMath.band(peer.rssi)+"\n"+(peer.profile==null?"Profil još nije razmijenjen.":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps));
+        Peer peer=peers.get(id);if(peer==null)return;selectedSession=id;profiles.focus=id;if(nearWanted)nearby.focus(id);renderDashboard();
+        String details=(peer.seen>0?"BLE signal: "+Math.round(peer.rssi)+" dBm • "+RadarMath.band(peer.rssi):"BLE RSSI nije izmjeren")+"\n"+(nearby.live(peer.id)?"Dodatna Nearby BT/Wi-Fi veza aktivna":"Dodatna Nearby veza nije aktivna")+"\n"+(peer.profile==null?"Profil još nije razmijenjen.":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps));
         new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\n"+details+"\n\nZa UWB odaberite jedno drugo na oba telefona. Držite telefone uspravno u portretu.")
             .setPositiveButton("Traži UWB",(d,w)->{startUwb(peer);renderDashboard();}).setNeutralButton("Pošalji ping",(d,w)->{sendPing();renderDashboard();}).setNegativeButton("Zatvori",null).show();
     }
     void sendPing(){
         Peer peer=selectedSession==null?null:peers.get(selectedSession);
-        if(demo||!searching||peer==null||peer.profile==null||SystemClock.elapsedRealtime()-peer.seen>12000){status.setText("Pokreni radar i odaberi aktivnog člana s razmijenjenim profilom.");return;}
+        if(demo||!searching||peer==null||peer.profile==null||!peerFresh(peer)){status.setText("Pokreni radar i odaberi aktivnog člana s razmijenjenim profilom.");return;}
         pingTarget=peer.id;pingId=new SecureRandom().nextInt(Integer.MAX_VALUE)+1L;pingAt=SystemClock.elapsedRealtime();status.setText("Ping pripremljen za "+peer.alias+". Dostava ovisi o aktivnoj vezi; nema potvrde primitka.");
     }
     JSONObject messageWire(){
@@ -256,17 +270,17 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         if(messages.pending(SystemClock.elapsedRealtime())!=null){mailStatus="Jedna poruka već čeka potvrdu (najviše 60 s).";return;}
         Peer peer=selectedSession==null?null:peers.get(selectedSession);
         if(peer==null){
-            java.util.List<Peer> candidates=new ArrayList<>();for(Peer p:peers.values())if(p.canMessage&&SystemClock.elapsedRealtime()-p.seen<=12000)candidates.add(p);
+            java.util.List<Peer> candidates=new ArrayList<>();for(Peer p:peers.values())if(canMessage(p)&&peerFresh(p))candidates.add(p);
             if(candidates.isEmpty()){mailStatus="Nema člana s aktivnom podrškom za poruke. Na oba telefona treba verzija 0.5 ili novija.";return;}
             String[] names=new String[candidates.size()];for(int i=0;i<names.length;i++)names[i]=candidates.get(i).alias;
-            new AlertDialog.Builder(this).setTitle("Poruka za člana").setItems(names,(d,i)->{selectedSession=candidates.get(i).id;profiles.focus=selectedSession;composeMessage();}).setNegativeButton("Odustani",null).show();return;
+            new AlertDialog.Builder(this).setTitle("Poruka za člana").setItems(names,(d,i)->{selectedSession=candidates.get(i).id;profiles.focus=selectedSession;if(nearWanted)nearby.focus(selectedSession);composeMessage();}).setNegativeButton("Odustani",null).show();return;
         }
-        if(!peer.canMessage||SystemClock.elapsedRealtime()-peer.seen>12000){mailStatus="Odabrani član nema aktivnu podatkovnu vezu za poruke. Oba telefona trebaju 0.5 ili noviju verziju.";return;}
+        if(!canMessage(peer)||!peerFresh(peer)){mailStatus="Odabrani član nema aktivnu podatkovnu vezu za poruke. Oba telefona trebaju 0.5 ili noviju verziju.";return;}
         EditText input=new EditText(this);input.setSingleLine();input.setHint("Kratka poruka — do 48 znakova");input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(48)});
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Poruka: "+peer.alias).setMessage("Šifrirani Bluetooth • bez interneta. Potvrda znači primitak u aplikaciji, ne da je osoba pročitala poruku.")
             .setView(input).setPositiveButton("Pošalji",null).setNegativeButton("Odustani",null).create();
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-            if(!searching||SystemClock.elapsedRealtime()-peer.seen>12000||!peer.canMessage){input.setError("Član više nema aktivnu vezu.");return;}
+            if(!searching||!peerFresh(peer)||!canMessage(peer)){input.setError("Član više nema aktivnu vezu.");return;}
             try{messages.send(peer.id,peer.alias,input.getText().toString(),SystemClock.elapsedRealtime());profiles.focus=peer.id;mailStatus="";dialog.dismiss();renderDashboard();}
             catch(IllegalArgumentException|IllegalStateException e){input.setError(e.getMessage());}
         }));dialog.show();
@@ -285,7 +299,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     String appVersion(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(PackageManager.NameNotFoundException e){return "dev";}}
     void updateGroup() { groupLabel.setText(groupKey == null ? "NEMA GRUPE • OFFLINE" : groupName+"  ✎  •  "+own.name); }
     void saveGroupInfo(){getSharedPreferences("groupInfo",0).edit().putString("name",groupName).putLong("revision",groupRevision).apply();}
-    void refreshHardware(){hardware.setText("TVOJ UREĐAJ: "+own.model+"\nPodržano: "+Capabilities.supported(own.caps)+"\n"+gps.state+"\n"+uwb.status+"\n"+motionSummary()+(motion.fresh(SystemClock.elapsedRealtime())?String.format(Locale.ROOT," • procjena RMS %.2f m/s²",motion.rms()):""));}
+    void refreshHardware(){hardware.setText("TVOJ UREĐAJ: "+own.model+"\nPodržano: "+Capabilities.supported(own.caps)+"\n"+gps.state+"\n"+uwb.status+"\n"+nearby.status+"\n"+motionSummary()+(motion.fresh(SystemClock.elapsedRealtime())?String.format(Locale.ROOT," • procjena RMS %.2f m/s²",motion.rms()):""));}
     void showHelp(){
         try(java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(getAssets().open("help.txt"),StandardCharsets.UTF_8))){
             StringBuilder text=new StringBuilder();String line;while((line=reader.readLine())!=null)text.append(line).append('\n');
@@ -301,6 +315,19 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
                 new AlertDialog.Builder(this).setTitle(titles[which]).setView(scroll).setPositiveButton("Zatvori",null).setNeutralButton("Teme",(x,y)->showHelp()).show();
             }).setNegativeButton("Zatvori",null).show();
         }catch(java.io.IOException e){status.setText("Pomoć nije dostupna u instalaciji.");}
+    }
+    boolean peerFresh(Peer peer){return nearby.live(peer.id)||(peer.seen>0&&SystemClock.elapsedRealtime()-peer.seen<=12000);}
+    boolean canMessage(Peer peer){return peer.canMessage||nearby.live(peer.id);}
+    void toggleNearby(){
+        if(nearby.active){nearWanted=false;nearby.stop();status.setText("Dodatna Nearby veza isključena. BLE ostaje aktivan.");return;}
+        if(!searching){status.setText("Prvo pokreni radar, zatim uključi BT + Wi-Fi vezu.");return;}
+        if(!pairPermissions()&&Build.VERSION.SDK_INT>=33){requestPermissions(new String[]{Manifest.permission.NEARBY_WIFI_DEVICES},104);return;}
+        nearWanted=true;nearby.start(groupKey,ble.sessionId(),selectedSession);status.setText(nearby.status);
+    }
+    void openAr(){
+        if(demo||!searching){status.setText("AR koristi stvarne članove. Pokreni radar i odaberi osobu.");return;}
+        if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.CAMERA},105);return;}
+        ar.show();
     }
     void toggleGps(){
         if(gps.sharing){gps.stop();gpsButton.setText("UKLJUČI GPS DIJELJENJE");status.setText("GPS dijeljenje isključeno.");return;}
@@ -327,7 +354,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             String name=input.getText().toString().trim();if(name.isEmpty())return;groupName=name;groupRevision=Math.max(System.currentTimeMillis(),groupRevision+1);saveGroupInfo();updateGroup();
         }).setNegativeButton("Odustani",null).show();
     }
-    void stop() { messages.stop();pingId=0;searching = false; ble.stop(); if(profiles!=null)profiles.stop();if(gps!=null)gps.stop();if(uwb!=null)uwb.stop();if(gpsButton!=null)gpsButton.setText("UKLJUČI GPS DIJELJENJE"); if (searchButton != null) searchButton.setText("POKRENI RADAR"); }
+    void stop() { if(ar!=null)ar.close();if(nearby!=null)nearby.stop();messages.stop();pingId=0;searching = false; ble.stop(); if(profiles!=null)profiles.stop();if(gps!=null)gps.stop();if(uwb!=null)uwb.stop();if(gpsButton!=null)gpsButton.setText("UKLJUČI GPS DIJELJENJE"); if (searchButton != null) searchButton.setText("POKRENI RADAR"); }
     boolean allowed() {
         for (String p : REQUIRED) if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) return false;
         return true;
@@ -336,15 +363,18 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         if (searching) { stop(); status.setText("Radar zaustavljen."); return; }
         if (groupKey == null) { firstRun(); return; }
         boolean askUwb=getPackageManager().hasSystemFeature("android.hardware.uwb")&&!uwb.permitted()&&!getSharedPreferences("identity",0).getBoolean("uwbAsked",false);
-        if (!allowed()||askUwb) {
+        if (!allowed()||askUwb||(Build.VERSION.SDK_INT>=33&&!getSharedPreferences("identity",0).getBoolean("nearAsked",false))) {
             ArrayList<String> permissions=new ArrayList<>(Arrays.asList(REQUIRED));
+            if(Build.VERSION.SDK_INT>=33&&!getSharedPreferences("identity",0).getBoolean("nearAsked",false)){permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES);getSharedPreferences("identity",0).edit().putBoolean("nearAsked",true).apply();}
             if(askUwb){permissions.add(Manifest.permission.UWB_RANGING);getSharedPreferences("identity",0).edit().putBoolean("uwbAsked",true).apply();}
             requestPermissions(permissions.toArray(new String[0]),101);return;
         }
-        pairing.stop(); demo=false; demoButton.setText("DEMO IZGLEDA"); peers.clear(); searching=true; searchButton.setText("ZAUSTAVI"); ble.start(groupKey); if(searching)profiles.start(groupKey,ble.sessionId(),own);
+        pairing.stop(); demo=false; demoButton.setText("DEMO IZGLEDA"); peers.clear();selectedSession=null; searching=true; searchButton.setText("ZAUSTAVI"); ble.start(groupKey); if(searching){profiles.start(groupKey,ble.sessionId(),own);if(nearWanted&&pairPermissions())nearby.start(groupKey,ble.sessionId(),selectedSession);}
     }
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grants) {
         super.onRequestPermissionsResult(requestCode,permissions,grants);
+        if(requestCode==104){if(pairPermissions()&&searching){nearWanted=true;nearby.start(groupKey,ble.sessionId(),selectedSession);}else status.setText("Nearby dozvola nije odobrena; BLE ostaje aktivan.");return;}
+        if(requestCode==105){if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)openAr();else status.setText("AR treba dopuštenje kamere.");return;}
         if(requestCode==103){Peer peer=selectedSession==null?null:peers.get(selectedSession);if(uwb.permitted()&&peer!=null)startUwb(peer);else status.setText("UWB dozvola nije odobrena. Koristi GPS/BLE.");return;}
         if(requestCode==102){if(pairPermissions())startPair(pendingPairAction==1);else status.setText("Dozvole za brojčano uparivanje nisu odobrene.");return;}
         if (requestCode == 101 && allowed()) toggleSearch();
@@ -405,7 +435,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         double meters=Double.NaN;Double angle;String distanceSource="BLE",directionSource="bez smjera",note="";
     }
     Estimate estimate(Peer peer){
-        Estimate e=new Estimate();long now=SystemClock.elapsedRealtime();
+        Estimate e=new Estimate();if(nearby.live(peer.id))e.distanceSource="Nearby";long now=SystemClock.elapsedRealtime();
         boolean uwbLive=selectedSession!=null&&selectedSession==peer.id&&uwb.targetSession==peer.id&&uwb.distance!=null&&Navigation.fresh(uwb.measuredAt,now,3000);
         if(uwbLive){e.meters=uwb.distance;e.distanceSource="UWB";e.note="Pogreška UWB-a nije prijavljena";
             if(uwb.azimuth!=null&&Navigation.antennaPosture(backHorizontal,displayRotation)&&Navigation.fresh(postureAt,now,2000)){e.angle=RadarMath.normalize(uwb.azimuth);e.directionSource="UWB kut antene";}
@@ -425,10 +455,10 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         }
         return e;
     }
-    String measurementText(Peer peer){Estimate e=estimate(peer);String distance=Double.isFinite(e.meters)?String.format(Locale.ROOT,"%s %.1f m",e.distanceSource,e.meters):"BLE blizina • bez metara";
+    String measurementText(Peer peer){Estimate e=estimate(peer);String distance=Double.isFinite(e.meters)?String.format(Locale.ROOT,"%s %.1f m",e.distanceSource,e.meters):(nearby.live(peer.id)?"Nearby veza • bez metara":"BLE blizina • bez metara");
         return distance+" • "+e.directionSource+(e.note.isEmpty()?"":"\n"+e.note);}
     void refreshMembers(){
-        long now=SystemClock.elapsedRealtime();peers.values().removeIf(p->now-p.seen>120000);
+        long now=SystemClock.elapsedRealtime();peers.values().removeIf(p->now-p.seen>120000&&!nearby.live(p.id));
         refreshHardware();if(searching){if(selectedSession!=null&&uwb.targetSession==selectedSession)status.setText(uwb.status);else if(gps.sharing)status.setText(gps.state);}renderDashboard();
     }
     final Runnable tick=new Runnable(){public void run(){if(!visible)return;refreshMembers();handler.postDelayed(this,1000);}};
