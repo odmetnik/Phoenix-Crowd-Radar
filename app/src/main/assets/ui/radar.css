@@ -3,3 +3,6 @@
 h1{font-family:Orbitron,Arial,sans-serif;letter-spacing:.03em;font-size:clamp(22px,6.1vw,43px)}
 /* Reference proportions: the dial is narrower than the full-width member cards. */
 .shell{padding-top:10px}.scope{width:76%;margin:0 auto}h1{font-size:clamp(25px,7vw,50px);margin-top:5px;margin-bottom:4px}.badge{margin-top:5px;margin-bottom:4px;padding:3px 2px}.event{padding:3px 0}.member{min-height:35px;padding:6px 9px}.number{font-size:18px}.measure img{width:22px;height:22px}nav img{width:28px;height:28px}
+/* Keep group controls reachable even with many members or a short display. */
+.shell{padding-bottom:125px}nav{position:fixed;bottom:22px;left:max(8px,calc((100vw - 684px)/2));right:max(8px,calc((100vw - 684px)/2));z-index:5;margin:0;background:#021017f5}footer{position:fixed;bottom:0;left:max(18px,calc((100vw - 664px)/2));right:max(18px,calc((100vw - 664px)/2));height:22px;margin:0;background:#020e14;z-index:5;font-size:11px}.utility{margin-top:6px}
+@media(max-height:720px){.scope{width:65%}.member{padding:4px 8px;min-height:31px}.number{font-size:16px;padding:2px 5px}.shell{padding-top:8px}nav{padding-top:5px}nav img{width:25px;height:25px}}
