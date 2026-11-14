@@ -49,6 +49,7 @@ Imena i mogućnosti su podaci koje prijavljuje aplikacija drugog člana, nisu do
 Koordinate i UWB ključeve sesije ne zapisujemo u datoteke, izvještaje ili logove. Nakon Stop/GPS isključeno novi podaci se ne šalju; zadnji primljeni podatak na drugom telefonu prestaje vrijediti prema pravilima starosti. Aplikacija nema mesh, server za udaljeno praćenje, PING niti rad u pozadini. Ne jamči pokrivenost cijelog sajma. Izrada APK-a i testovi ne potvrđuju fizičku UWB kompatibilnost.
 
 PROMJENE — 0.4.0-dev
+• Okvir prikaza poštuje Android sistemsku statusnu i navigacijsku traku, uključujući prisilni edge-to-edge prikaz na Androidu 15.
 • Naziv događaja iznad radara može se mijenjati dodirom, uključujući demo prikaz; Interliber nije fiksan tekst.
 • Veličina kružnog prikaza usklađena je s užim radarom iz reference; kartice ostaju pune širine.
 • Lokalno uključen font Orbitron; stariji WebView ima zamjenski način crtanja oznaka.

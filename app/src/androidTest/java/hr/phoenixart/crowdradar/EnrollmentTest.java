@@ -35,12 +35,17 @@ public class EnrollmentTest {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             java.util.concurrent.atomic.AtomicBoolean ready=new java.util.concurrent.atomic.AtomicBoolean();
             long deadline=android.os.SystemClock.elapsedRealtime()+15000;
-            do{scenario.onActivity(a->ready.set(a.dashboard.ready));if(!ready.get())android.os.SystemClock.sleep(100);}while(!ready.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
+            do{scenario.onActivity(a->ready.set(a.dashboard.ready&&a.hasWindowFocus()));if(!ready.get())android.os.SystemClock.sleep(100);}while(!ready.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
             assertTrue("Packaged WebView page loaded",ready.get());
-            scenario.onActivity(a->a.toggleDemo());
+            scenario.onActivity(a->{a.groupName="Interliber";a.toggleDemo();});
             java.util.concurrent.CountDownLatch rendered=new java.util.concurrent.CountDownLatch(1);
             scenario.onActivity(a->a.dashboard.view.evaluateJavascript("document.getElementById('badge').textContent",v->{assertTrue(v.contains("DEMO"));rendered.countDown();}));
             assertTrue(rendered.await(5,java.util.concurrent.TimeUnit.SECONDS));
+            java.util.concurrent.CountDownLatch painted=new java.util.concurrent.CountDownLatch(1);
+            scenario.onActivity(a->a.dashboard.view.postVisualStateCallback(1,new android.webkit.WebView.VisualStateCallback(){
+                @Override public void onComplete(long requestId){a.dashboard.view.postOnAnimation(()->a.dashboard.view.postOnAnimation(painted::countDown));}
+            }));
+            assertTrue("WebView committed demo frame",painted.await(10,java.util.concurrent.TimeUnit.SECONDS));
             androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getUiAutomation().waitForIdle(500,5000);
             android.graphics.Bitmap bitmap=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(bitmap);
             android.content.Context context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();

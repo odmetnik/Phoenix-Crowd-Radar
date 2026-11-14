@@ -131,8 +131,9 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         status=label("Kreiraj grupu ili se pridruži kolegama.",13,AMBER);
         groupLabel=label("",12,MUTED);memberLabel=label("",14,Color.WHITE);hardware=label("",11,MUTED);rangeMode=label("",11,CYAN);
         searchButton=button("POKRENI RADAR",this::toggleSearch);demoButton=button("DEMO IZGLEDA",this::toggleDemo);gpsButton=button("UKLJUČI GPS DIJELJENJE",this::toggleGps);
-        dashboard=new Dashboard(this,this::dashboardAction);setContentView(dashboard.view);
-        dashboard.view.setOnApplyWindowInsetsListener((v,insets)->{android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);return insets;});
+        dashboard=new Dashboard(this,this::dashboardAction);
+        FrameLayout frame=new FrameLayout(this);frame.setBackgroundColor(BG);frame.addView(dashboard.view,new FrameLayout.LayoutParams(-1,-1));setContentView(frame);
+        frame.setOnApplyWindowInsetsListener((v,insets)->{android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);return insets;});
         updateGroup();refreshHardware();
     }
     void dashboardAction(String action,String value){
