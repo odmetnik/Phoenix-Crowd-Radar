@@ -12,6 +12,7 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
 dependencies {
+    implementation("androidx.activity:activity:1.9.3")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.android.gms:play-services-nearby:19.5.0")
 }
