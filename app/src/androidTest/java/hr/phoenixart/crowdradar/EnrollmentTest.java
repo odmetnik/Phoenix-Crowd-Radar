@@ -37,7 +37,11 @@ public class EnrollmentTest {
             long deadline=android.os.SystemClock.elapsedRealtime()+15000;
             do{scenario.onActivity(a->ready.set(a.dashboard.ready&&a.hasWindowFocus()));if(!ready.get())android.os.SystemClock.sleep(100);}while(!ready.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
             assertTrue("Packaged WebView page loaded",ready.get());
-            scenario.onActivity(a->{a.groupName="Interliber";a.toggleDemo();});
+            scenario.onActivity(a->{a.groupName="Interliber";a.dashboard.view.evaluateJavascript("document.getElementById('demo').click()",null);});
+            java.util.concurrent.atomic.AtomicBoolean demoActive=new java.util.concurrent.atomic.AtomicBoolean();
+            deadline=android.os.SystemClock.elapsedRealtime()+5000;
+            do{scenario.onActivity(a->demoActive.set(a.demo));if(!demoActive.get())android.os.SystemClock.sleep(100);}while(!demoActive.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
+            assertTrue("HTML button called native Android bridge",demoActive.get());
             java.util.concurrent.CountDownLatch rendered=new java.util.concurrent.CountDownLatch(1);
             scenario.onActivity(a->a.dashboard.view.evaluateJavascript("document.getElementById('badge').textContent",v->{assertTrue(v.contains("DEMO"));rendered.countDown();}));
             assertTrue(rendered.await(5,java.util.concurrent.TimeUnit.SECONDS));
