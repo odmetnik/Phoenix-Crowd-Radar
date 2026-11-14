@@ -1,4 +1,6 @@
-# Phoenix Crowd Radar 0.5
+# Phoenix Crowd Radar 0.5 — podloga
+
+Nadogradnja 0.6 dodaje Nearby BT/Wi-Fi transport i eksperimentalni CameraX HUD: [NEARBY_AR.md](NEARBY_AR.md). Opis GATT-a niže odnosi se na osnovni kanal.
 
 ## Dinamički radar
 
@@ -22,4 +24,4 @@ SENSOR_DELAY_UI: preferiran linearni senzor, inače obični akcelerometar s ukla
 
 ## Kasniji AR
 
-AR nije ugrađen. Prvi korak je overlay imena, udaljenosti i strelica uz valjan smjer i kalibriranu vezu antena–kamera. Potrebna je obrada vidnog polja, zakreta, kašnjenja i neizvjesnosti. AR praćenje vlastite kamere/telefona nije mjerenje kretanja druge osobe i ne može zamijeniti nedostajući UWB/GPS smjer.
+Od 0.6 ugrađen je shematski CameraX HUD, detalji u NEARBY_AR.md. Puni 3D AR još nije ugrađen. Prvi korak je overlay imena, udaljenosti i strelica uz valjan smjer i kalibriranu vezu antena–kamera. Potrebna je obrada vidnog polja, zakreta, kašnjenja i neizvjesnosti. AR praćenje vlastite kamere/telefona nije mjerenje kretanja druge osobe i ne može zamijeniti nedostajući UWB/GPS smjer.

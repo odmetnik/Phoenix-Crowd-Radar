@@ -304,8 +304,8 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         try(java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(getAssets().open("help.txt"),StandardCharsets.UTF_8))){
             StringBuilder text=new StringBuilder();String line;while((line=reader.readLine())!=null)text.append(line).append('\n');
             String full=text.toString();
-            String[] titles={"Brzi početak","Bluetooth / BLE","GPS / GNSS","UWB traženje","Kompas","QR, kod i Wi-Fi","Poruke i PING","Radar i preciznost","Privatnost i ograničenja","Promjene verzije","Cijela pomoć"};
-            String[] markers={"BRZI POČETAK","BLE — BLIZINA","GPS / GNSS —","UWB — IZRAVNO","KOMPAS I ORIJENTACIJA","QR, BROJČANI KOD","PORUKE I PING","KAKO ČITATI RADAR","PRIVATNOST I OGRANIČENJA","PROMJENE —"};
+            String[] titles={"Brzi početak","Bluetooth / BLE","GPS / GNSS","UWB traženje","Kompas","QR, kod i Wi-Fi","Poruke i PING","Radar i preciznost","AR smjer / kamera","Privatnost i ograničenja","Promjene verzije","Cijela pomoć"};
+            String[] markers={"BRZI POČETAK","BLE — BLIZINA","GPS / GNSS —","UWB — IZRAVNO","KOMPAS I ORIJENTACIJA","QR, BROJČANI KOD","PORUKE I PING","KAKO ČITATI RADAR","AR — EKSPERIMENTALNI","PRIVATNOST I OGRANIČENJA","PROMJENE —"};
             new AlertDialog.Builder(this).setTitle("Pomoć • "+appVersion()).setItems(titles,(d,which)->{
                 String content=full;
                 if(which<markers.length){int start=full.indexOf(markers[which]);int end=which+1<markers.length?full.indexOf(markers[which+1]):full.length();

@@ -60,6 +60,11 @@ Točka: imamo svježu udaljenost i valjan smjer. Krug bez točke: postoji udalje
 Kartice odvajaju podržani hardver od aktivnog izvora. Za udaljenost prednost ima svjež UWB, zatim valjan GPS, zatim BLE bez metara. Izvor udaljenosti i izvor smjera mogu se razlikovati i prikazani su zasebno. GPS ~ nije jednako UWB mjerenju. Kada se GPS koordinate poklope, 0 m ostaje procjena s pogreškom, a nije dokaz da telefoni fizički stoje na istom mjestu.
 DEMO je simulacija: prikazane osobe nisu stvarno pronađene i pravi radio/GPS/UWB su zaustavljeni.
 
+AR — EKSPERIMENTALNI PRIKAZ SMJERA (OD 0.6)
+AR SMJER · KAMERA na radaru otvara stražnju kameru i HUD s imenima, udaljenostima i strelicama. Kamera koristi Android CameraX; aplikacija ne snima, ne sprema i ne šalje sliku, ne prepoznaje lica i ne koristi ARCore ili oblak. Izlazak iz AR-a oslobađa kameru. Odlazak u drugu aplikaciju zatvara AR i zaustavlja radio.
+Drži telefon uspravno u portretu. Strelica prikazuje postojeći UWB kut ili dovoljno pouzdan GPS + kompas smjer. Bez smjera, svježine ili pravilnog držanja nema strelice. Smjer iza tebe označen je OKRENI SE. Odabrana osoba je prva; ako nema mjesta, prikazan je broj preostalih članova.
+Traka LIJEVO / ISPRED / DESNO je shematski azimut. Natpis nije sidro na osobi u videoslici. Ne znamo vertikalni kut i nismo kalibrirali kameru s UWB antenom svakog modela. Zato ovo nije puni 3D AR niti dokaz da se osoba nalazi iza određene točke slike. Puna projekcija i trajna 3D sidra ostaju daljnji razvoj. Primjere na GitHubu pregledali smo radi arhitekture; vlastiti HUD ne preuzima njihov kod. AR i akcelerometar ne stvaraju nedostajući smjer niti povećavaju domet.
+
 PRIVATNOST I OGRANIČENJA
 Koristimo AES-GCM za sadržaj GATT i Nearby poruka s odvojenim kriptografskim domenama i HMAC za grupne BLE oglase. Grupni ključ je spremljen kroz Android Keystore. Za svako čitanje živi kanal koristi novi izazov radi provjere svježine odgovora. Član koji ima grupni ključ može pozivati druge i čitati grupne podatke; ovo nije sustav pojedinačnih administratorskih ovlasti.
 Imena i mogućnosti su podaci koje prijavljuje aplikacija drugog člana, nisu dokaz identiteta ni hardverska atestacija. BLE oglasi imaju privremeni ID i vremenski prozor; ne jamčimo zaštitu od svih replay/relay napada. Koristi novu grupu za novi događaj. Za uklanjanje osobe preostali trebaju novu grupu.
@@ -81,8 +86,3 @@ Promjene 0.5.0-dev
 • Dodane kratke šifrirane Bluetooth poruke, provjera podrške, potvrde primitka, rok dostave i povijest samo u memoriji.
 • Dodano lokalno očitanje linearnog ubrzanja/akcelerometra i procjena kretanja bez računanja lažnog položaja.
 • Help ažuriran za svaki novi način rada.
-
-AR — EKSPERIMENTALNI PRIKAZ SMJERA (OD 0.6)
-AR SMJER · KAMERA na radaru otvara stražnju kameru i HUD s imenima, udaljenostima i strelicama. Kamera koristi Android CameraX; aplikacija ne snima, ne sprema i ne šalje sliku, ne prepoznaje lica i ne koristi ARCore ili oblak. Izlazak iz AR-a oslobađa kameru. Odlazak u drugu aplikaciju zatvara AR i zaustavlja radio.
-Drži telefon uspravno u portretu. Strelica prikazuje postojeći UWB kut ili dovoljno pouzdan GPS + kompas smjer. Bez smjera, svježine ili pravilnog držanja nema strelice. Smjer iza tebe označen je OKRENI SE. Odabrana osoba je prva; ako nema mjesta, prikazan je broj preostalih članova.
-Traka LIJEVO / ISPRED / DESNO je shematski azimut. Natpis nije sidro na osobi u videoslici. Ne znamo vertikalni kut i nismo kalibrirali kameru s UWB antenom svakog modela. Zato ovo nije puni 3D AR niti dokaz da se osoba nalazi iza određene točke slike. Puna projekcija i trajna 3D sidra ostaju daljnji razvoj. Primjere na GitHubu pregledali smo radi arhitekture; vlastiti HUD ne preuzima njihov kod. AR i akcelerometar ne stvaraju nedostajući smjer niti povećavaju domet.

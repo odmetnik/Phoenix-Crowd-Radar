@@ -82,6 +82,24 @@ public class EnrollmentTest {
             try(java.io.OutputStream out=context.getContentResolver().openOutputStream(uri)){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}
         }
     }
+    @Test public void cameraHudOpensAndReleasesWithoutStartingRadio()throws Exception{
+        var instrumentation=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation();
+        instrumentation.getUiAutomation().grantRuntimePermission(instrumentation.getTargetContext().getPackageName(),android.Manifest.permission.CAMERA);
+        try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+            awaitFocus(scenario);
+            scenario.onActivity(a->{a.stop();a.searching=true;MainActivity.Peer peer=new MainActivity.Peer(321,-70);peer.alias="QA — smjer nije izmjeren";peer.seen=android.os.SystemClock.elapsedRealtime();a.peers.put(321,peer);a.openAr();assertTrue(a.ar.open);});
+            java.util.concurrent.atomic.AtomicBoolean bound=new java.util.concurrent.atomic.AtomicBoolean();long deadline=android.os.SystemClock.elapsedRealtime()+20000;
+            do{scenario.onActivity(a->bound.set(a.ar.preview!=null&&a.ar.preview.getResolutionInfo()!=null&&a.ar.cameraStatus.startsWith("Kamera uživo")));if(!bound.get())android.os.SystemClock.sleep(100);}while(!bound.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
+            assertTrue("CameraX bound the back-camera preview",bound.get());
+            java.util.concurrent.CountDownLatch frame=new java.util.concurrent.CountDownLatch(1);scenario.onActivity(a->a.ar.hud.postOnAnimation(()->a.ar.hud.postOnAnimation(frame::countDown)));assertTrue(frame.await(5,java.util.concurrent.TimeUnit.SECONDS));
+            android.graphics.Bitmap bitmap=instrumentation.getUiAutomation().takeScreenshot();assertNotNull(bitmap);
+            android.content.Context context=instrumentation.getTargetContext();android.content.ContentValues values=new android.content.ContentValues();
+            values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"ar-hud.png");values.put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png");values.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/Phoenix");
+            android.net.Uri uri=context.getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values);assertNotNull(uri);
+            try(java.io.OutputStream out=context.getContentResolver().openOutputStream(uri)){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}
+            scenario.onActivity(a->{a.ar.close();assertFalse(a.ar.open);assertNull(a.ar.preview);assertTrue(a.searching);a.stop();});
+        }
+    }
     @Test public void nearbyAndArGuardsDoNotStartWithoutRadar(){
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             awaitFocus(scenario);

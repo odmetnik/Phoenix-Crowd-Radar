@@ -53,6 +53,7 @@ jobs:
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             dashboard.png
+            ar-hud.png
             focus-failure.png
             app/build/reports/androidTests/connected/
           if-no-files-found: error
