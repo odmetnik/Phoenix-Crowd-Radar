@@ -1,4 +1,4 @@
-VERSION: 0.5.0-dev
+VERSION: 0.5.1-dev
 PHOENIX CROWD RADAR — POMOĆ
 Ažurirano: 14. 11. 2026.
 Pomoć se otvara po temama; odaberi Brzi početak ili pojedinu tehnologiju.
@@ -28,7 +28,7 @@ Pogrešku UWB-a ne izmišljamo ako je sustav ne daje. Broj decimala nije jamstvo
 Ako nema mjerenja, provjerite UWB postavku, dopuštenje, otvorenu aplikaciju i odabir na oba telefona, pa ponovno pokrenite traženje. Neki parovi/uloge uređaja nisu kompatibilni.
 
 KOMPAS I ORIJENTACIJA
-Akcelerometar mjeri ubrzanje telefona. Ova verzija očitava TYPE_LINEAR_ACCELERATION (bez gravitacije) kada je dostupan, inače filtrira gravitaciju iz običnog akcelerometra. Procjena jačine ubrzanja/RMS i status „Telefon miruje / kreće se” lokalni su pokazatelji kretanja. Očitavanje počinje nakon kratkog zagrijavanja; zastarjeli podaci ne prikazuju se kao aktualni. Senzor se gasi s pauziranjem aplikacije.
+Akcelerometar mjeri ubrzanje telefona. Ova verzija očitava TYPE_LINEAR_ACCELERATION (bez gravitacije) kada je dostupan, inače filtrira gravitaciju iz običnog akcelerometra. Procjena jačine ubrzanja/RMS i status „Nisko / povišeno ubrzanje” lokalni su pokazatelji promjene ubrzanja. Nisko ubrzanje ne dokazuje mirovanje: telefon se može gibati stalnom brzinom. Očitavanje počinje nakon kratkog zagrijavanja; zastarjeli podaci ne prikazuju se kao aktualni. Senzor se gasi s pauziranjem aplikacije.
 Akcelerometar NE daje smjer prema kolegi ni njegov položaj. Ne integriramo ubrzanje u izmišljene metre; ne zamjenjuje UWB, GPS ni pouzdanu orijentaciju. Androidov senzor rotacije već spaja dostupne senzore radi orijentacije. Pokazatelj kretanja ne povećava deklariranu točnost UWB/GPS-a.
 Senzor rotacije koristi senzore orijentacije telefona. Za GPS smjer dodajemo magnetsku deklinaciju iz svježe vlastite lokacije da bismo koristili pravi sjever. Metal i magneti mogu poremetiti kompas. Nepouzdanu ili zastarjelu orijentaciju ne koristimo za GPS strelicu.
 Dok je telefon uspravan, naprijed je smjer iza njegove stražnje strane; kada ga držite položenog, naprijed je gornji rub. Za UWB kut ova verzija podržava samo uspravan portret.
@@ -60,7 +60,10 @@ Koristimo AES-GCM za sadržaj GATT poruka i HMAC za grupne BLE oglase. Grupni kl
 Imena i mogućnosti su podaci koje prijavljuje aplikacija drugog člana, nisu dokaz identiteta ni hardverska atestacija. BLE oglasi imaju privremeni ID i vremenski prozor; ne jamčimo zaštitu od svih replay/relay napada. Koristi novu grupu za novi događaj. Za uklanjanje osobe preostali trebaju novu grupu.
 Koordinate i UWB ključeve sesije ne zapisujemo u datoteke, izvještaje ili logove. Nakon Stop/GPS isključeno novi podaci se ne šalju; zadnji primljeni podatak na drugom telefonu prestaje vrijediti prema pravilima starosti. Aplikacija nema mesh, server za udaljeno praćenje, PING niti rad u pozadini. Ne jamči pokrivenost cijelog sajma. Izrada APK-a i testovi ne potvrđuju fizičku UWB kompatibilnost.
 
-PROMJENE — 0.5.0-dev
+PROMJENE — 0.5.1-dev
+• Ispravljena interpretacija akcelerometra: nisko/povišeno ubrzanje i RMS ne znače pouzdano mirovanje ili gibanje.
+
+Promjene 0.5.0-dev
 • Dinamički automatski i fokusirani zum s metarskim oznakama prstenova i glatkim prijelazom.
 • Ispravljeno prekrivanje vrlo bliskih članova središtem TI; jasno označen nedostupan smjer i članovi izvan skale.
 • Dodane kratke šifrirane Bluetooth poruke, provjera podrške, potvrde primitka, rok dostave i povijest samo u memoriji.

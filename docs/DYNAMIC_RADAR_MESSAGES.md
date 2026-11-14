@@ -18,7 +18,7 @@ Povijest najviše 20 zapisa čuva se samo u memoriji. Stop prekida čekanje i br
 
 ## Akcelerometar
 
-SENSOR_DELAY_UI: preferiran linearni senzor, inače obični akcelerometar s uklanjanjem gravitacije niskopropusnim filtrom. RMS/indikator kretanja prikazuje se tek nakon zagrijavanja i dok su uzorci svježi. Ovo nije procjena brzine ili položaja. ROTATION_VECTOR događaji obrađuju se odvojeno. Nema dodatnog praćenja u pozadini, prijenosa ili zapisivanja sirovih senzora.
+SENSOR_DELAY_UI: preferiran linearni senzor, inače obični akcelerometar s uklanjanjem gravitacije niskopropusnim filtrom. RMS/indikator niskog ili povišenog ubrzanja prikazuje se tek nakon zagrijavanja i dok su uzorci svježi. Ovo nije procjena brzine ili položaja; malo ubrzanje ne dokazuje da telefon miruje. ROTATION_VECTOR događaji obrađuju se odvojeno. Nema dodatnog praćenja u pozadini, prijenosa ili zapisivanja sirovih senzora.
 
 ## Kasniji AR
 

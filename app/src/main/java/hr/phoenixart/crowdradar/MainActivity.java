@@ -448,7 +448,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         long now=SystemClock.elapsedRealtime();
         if(motionSensorType==0)return "SENZOR KRETANJA NEDOSTUPAN";
         if(!motion.fresh(now))return "KRETANJE — ČEKAM SENZOR";
-        return motion.moving(now)?"TELEFON SE KREĆE":"TELEFON MIRUJE";
+        return motion.aboveThreshold(now)?"POVIŠENO UBRZANJE":"NISKO UBRZANJE";
     }
     @Override public void onSensorChanged(SensorEvent event){
         int type=event.sensor.getType();

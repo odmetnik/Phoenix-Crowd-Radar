@@ -32,8 +32,8 @@ public class FeatureTest {
   check(full.history(21000).size()==20);check(full.receive(11,22,22,"9999999999999999","X","Novi",21001)==null);
   check(full.receive(11,22,22,"0000000000000000","X","Test",21002)==null);check(full.acknowledgements().contains("0000000000000000"));
   MotionState motion=new MotionState();check(!motion.fresh(1000));
-  for(int i=1;i<=20;i++)motion.sample(0,0,0,i*100);check(motion.fresh(2000));check(!motion.moving(2000));
-  for(int i=21;i<=40;i++)motion.sample(1,0,0,i*100);check(motion.moving(4000));check(!motion.fresh(7001));
+  for(int i=1;i<=20;i++)motion.sample(0,0,0,i*100);check(motion.fresh(2000));check(!motion.aboveThreshold(2000));
+  for(int i=21;i<=40;i++)motion.sample(1,0,0,i*100);check(motion.aboveThreshold(4000));check(!motion.fresh(7001));
   motion.reset();check(!motion.fresh(4000));motion.sample(Double.NaN,0,0,4100);check(!motion.fresh(4100));
   System.out.println("PASS: "+checks+" messaging, crypto envelope and motion checks");
  }

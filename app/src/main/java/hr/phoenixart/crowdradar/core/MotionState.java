@@ -1,6 +1,6 @@
 package hr.phoenixart.crowdradar.core;
 
-/** Local motion indicator only; acceleration is never integrated into location. */
+/** Local acceleration indicator only; low acceleration does not imply zero velocity. */
 public final class MotionState {
     private double energy;private long at,started;
     public void reset(){energy=0;at=started=0;}
@@ -10,6 +10,6 @@ public final class MotionState {
         at=now;
     }
     public boolean fresh(long now){return at>0&&now>=at&&now-at<=2000&&now-started>=700;}
-    public boolean moving(long now){return fresh(now)&&energy>.16;}
+    public boolean aboveThreshold(long now){return fresh(now)&&energy>.16;}
     public double rms(){return Math.sqrt(Math.max(0,energy));}
 }

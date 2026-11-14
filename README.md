@@ -1,4 +1,4 @@
-# Phoenix Crowd Radar — 0.5.0-dev
+# Phoenix Crowd Radar — 0.5.1-dev
 
 Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GPS razmjena i UWB sesija za odabrani par. Phoenix Art / by Željko Kušter.
 
@@ -8,7 +8,7 @@ Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GP
 
 - Dinamički AUTO/FOKUS zum, glatki prijelazi, metarske oznake i vidljivi bliski članovi. Bez smjera prikazujemo krug i upozorenje.
 - Kratke Bluetooth poruke do 48 znakova s potvrdom primitka, zasebnim šifriranim kanalom i prolaznom poviješću. Oba telefona trebaju 0.5+; Wi-Fi transport poruka nije ugrađen.
-- Lokalna procjena kretanja iz linearnog ubrzanja ili filtriranog akcelerometra; ne računa položaj druge osobe.
+- Lokalno RMS očitanje i nisko/povišeno linearno ubrzanje; mala vrijednost nije dokaz mirovanja. Ne računa položaj druge osobe.
 - AR strelice i imena su sljedeća faza, još nisu ugrađeni.
 - Offline HTML/Canvas cyber sučelje prema referenci, animirani radar i odvojene kartice RADAR / GRUPA / PING.
 - Jasno kreiranje/pridruživanje pri prvom pokretanju; QR i brojčana pozivnica nude kreiranje grupe ako nedostaje.
