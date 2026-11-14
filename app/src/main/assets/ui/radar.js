@@ -8,7 +8,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)r
 window.receiveState=next=>{state=next;render();};
 function render(){
  $('badge').textContent=state.demo?'DEMO / KONCEPT':state.running?'RADAR AKTIVAN':'RADAR ZAUSTAVLJEN';$('badge').classList.toggle('demo',state.demo);
- $('event').textContent=(state.demo?'INTERLIBER':state.hasGroup?state.group:'NEMA GRUPE')+' · '+state.members.length+' ČLANA';
+ $('event').textContent=(state.demo?state.group:state.hasGroup?state.group:'NEMA GRUPE')+' · '+state.members.length+' ČLANA';
  $('status').textContent=state.status;$('start').textContent=state.running?'ZAUSTAVI RADAR':'POKRENI RADAR';$('start').classList.toggle('running',state.running);$('demo').textContent=state.demo?'ISKLJUČI DEMO':'DEMO IZGLEDA';
  $('version').textContent=state.version?'v'+state.version:'';$('gps').textContent=state.gps?'ISKLJUČI GPS DIJELJENJE':'UKLJUČI GPS DIJELJENJE';
  $('hardware').textContent=state.hardware||'';$('groupInfo').textContent=state.hasGroup?state.group+'\n'+(state.own||''):'Još nisi u grupi. Kreiraj je ili se pridruži pozivnicom.';

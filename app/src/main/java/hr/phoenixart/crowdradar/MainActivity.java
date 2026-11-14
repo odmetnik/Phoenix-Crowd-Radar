@@ -78,7 +78,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         try { groupKey = groupStore.load(); } catch (Exception e) { groupKey = null; }
         gps=new GpsLocator(this);uwb=new UwbLocator(this);
         own=DeviceProfile.local(this);
-        groupName=getSharedPreferences("groupInfo",0).getString("name","Moja grupa");
+        groupName=getSharedPreferences("groupInfo",0).getString("name","Interliber");
         groupRevision=getSharedPreferences("groupInfo",0).getLong("revision",0);
         profiles=new ProfileLink(this,(id,profile,name,revision)->{
             Peer peer=peers.get(id);if(peer==null)return;peer.profile=profile;peer.alias=profile.name;
@@ -141,7 +141,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             case "radar":toggleSearch();break;
             case "demo":toggleDemo();break;
             case "create":createGroup(false,null);break;
-            case "rename":if(groupKey==null)createGroup(false,null);else editGroupName();break;
+            case "rename":if(groupKey==null&&!demo)createGroup(false,null);else editGroupName();break;
             case "invite":if(groupKey==null)createGroup(false,this::invite);else invite();break;
             case "scan":scanInvite();break;
             case "host":startPair(true);break;
