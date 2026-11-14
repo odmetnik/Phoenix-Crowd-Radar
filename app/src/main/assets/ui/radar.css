@@ -10,3 +10,5 @@ h1{font-family:Orbitron,Arial,sans-serif;letter-spacing:.03em;font-size:clamp(22
 .event{text-transform:uppercase}.member{position:relative;isolation:isolate;border:0;background:#8de6ee}.member:before{content:"";position:absolute;inset:1px;clip-path:inherit;background:#03181f;z-index:-1}.member.selected:before{background:#0b343c}
 
 .direction-note{display:block;color:var(--amber);font-size:.72em;margin-top:3px;line-height:1.25}.measure{width:50%}
+
+.secondary{display:block;width:100%;min-height:42px;margin:8px 0;border:1px solid #2c7c87;background:linear-gradient(105deg,#052630,#02171f);color:var(--cyan);padding:9px 12px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;box-shadow:inset 0 0 10px #00ffff11}
