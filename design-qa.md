@@ -1,3 +1,21 @@
+# Phoenix Crowd Radar 0.5.1 — završna provjera
+
+- Produkcijski commit: `61275239fc249130623b079c8406433b37d0f16a`.
+- Uspješna izrada: GitHub Actions run `43640579724`.
+- Prošli su assembleDebug, lintDebug, 40 postojećih i 51 nova provjera jezgre te JavaScript testovi skale, fokusa, histereze, redoslijeda crtanja i HTML veza.
+- Prošla su sva tri Android UI testa: stvaranje/pohrana grupe, QR prikaz i uvoz pozivnice; HTML gumb kroz Android most i snimka iscrtavanja; poseban početni dijalog radara.
+- Pregledana je stvarna Android snimka `dashboard.png` iz UI artefakta 14131902219. Novi metarski prstenovi, točke, kartice i navigacija vidljivi su; simulirani podaci jasno su označeni. Oznake prstenova zaokružuju se radi čitljivosti.
+- Stvarni JavaScript Canvas renderer zasebno je iscrtan s testnim udaljenostima 0,6 m i 0,01 m te s nepoznatim smjerom. Bliska oznaka nije prekrivena središtem, a nepoznat smjer daje prsten umjesto točke. Ovo nisu fizička mjerenja.
+- Uzrok prijašnjih padova fokusa utvrđen je snimkom `focus-failure.png`: Pixel Launcher ANR dijalog prekrivao je aplikaciju. Privremeno isključivanje samo tog launchera unutar CI emulatora riješilo je blokadu; paket se nakon testova vraća. To nije postavka isporučenog APK-a.
+- Potpis APK-a odgovara verzijama 0.3/0.4/0.5; potvrđeni su integritet ZIP-a, stvarni zapakirani izvori UI-ja i Help 0.5.1.
+- Fizički Bluetooth prijenos poruka i potvrda između dva telefona, očitanje senzora na stvarnom mobitelu te UWB/GPS preciznost ove nadogradnje još nisu potvrđeni. AR nije implementiran.
+
+final result: passed
+
+Slijedi povijesna vizualna provjera verzije 0.4; njezina ograničenja odnose se na tadašnju izradu.
+
+---
+
 # Phoenix Crowd Radar 0.4 — Android visual QA
 
 final result: passed
