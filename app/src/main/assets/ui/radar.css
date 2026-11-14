@@ -6,3 +6,5 @@ h1{font-family:Orbitron,Arial,sans-serif;letter-spacing:.03em;font-size:clamp(22
 /* Keep group controls reachable even with many members or a short display. */
 .shell{padding-bottom:125px}nav{position:fixed;bottom:22px;left:max(8px,calc((100vw - 684px)/2));right:max(8px,calc((100vw - 684px)/2));z-index:5;margin:0;background:#021017f5}footer{position:fixed;bottom:0;left:max(18px,calc((100vw - 664px)/2));right:max(18px,calc((100vw - 664px)/2));height:22px;margin:0;background:#020e14;z-index:5;font-size:11px}.utility{margin-top:6px}
 @media(max-height:720px){.scope{width:65%}.member{padding:4px 8px;min-height:31px}.number{font-size:16px;padding:2px 5px}.shell{padding-top:8px}nav{padding-top:5px}nav img{width:25px;height:25px}}
+
+.event{text-transform:uppercase}.member{position:relative;isolation:isolate;border:0;background:#8de6ee}.member:before{content:"";position:absolute;inset:1px;clip-path:inherit;background:#03181f;z-index:-1}.member.selected:before{background:#0b343c}
