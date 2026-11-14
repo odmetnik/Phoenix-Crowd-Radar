@@ -14,6 +14,7 @@ test_status=0
 gradle --no-daemon :app:connectedDebugAndroidTest || test_status=$?
 adb pull /sdcard/Pictures/Phoenix/dashboard.png dashboard.png || true
 adb pull /sdcard/Pictures/Phoenix/ar-hud.png ar-hud.png || true
+adb pull /sdcard/Pictures/Phoenix/ar-grid.png ar-grid.png || true
 adb pull /sdcard/Pictures/Phoenix/focus-failure.png focus-failure.png || true
 adb shell pm enable "$launcher_pkg" || true
 exit "$test_status"

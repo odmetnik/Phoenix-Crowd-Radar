@@ -87,7 +87,7 @@ public class EnrollmentTest {
         instrumentation.getUiAutomation().grantRuntimePermission(instrumentation.getTargetContext().getPackageName(),android.Manifest.permission.CAMERA);
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             awaitFocus(scenario);
-            scenario.onActivity(a->{a.stop();a.engine.searching=true;MainActivity.Peer peer=new MainActivity.Peer(321,-70);peer.alias="QA — smjer nije izmjeren";peer.seen=android.os.SystemClock.elapsedRealtime();a.engine.peers.put(321,peer);a.openAr();a.ar.close();a.openAr();assertTrue(a.ar.open);});
+            scenario.onActivity(a->{a.stop();a.engine.peers.clear();a.engine.searching=true;MainActivity.Peer peer=new MainActivity.Peer(321,-70);peer.alias="QA — smjer nije izmjeren";peer.seen=android.os.SystemClock.elapsedRealtime();a.engine.peers.put(321,peer);a.openAr();a.ar.close();a.openAr();assertTrue(a.ar.open);});
             java.util.concurrent.atomic.AtomicBoolean bound=new java.util.concurrent.atomic.AtomicBoolean();long deadline=android.os.SystemClock.elapsedRealtime()+20000;
             do{scenario.onActivity(a->bound.set(a.ar.preview!=null&&a.ar.preview.getResolutionInfo()!=null&&a.ar.cameraStatus.startsWith("Kamera uživo")));if(!bound.get())android.os.SystemClock.sleep(100);}while(!bound.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
             scenario.onActivity(a->System.out.println("Camera HUD: open="+a.ar.open+" status="+a.ar.cameraStatus+" preview="+(a.ar.preview!=null)));
@@ -96,6 +96,12 @@ public class EnrollmentTest {
             scenario.onActivity(a->{long now=android.os.SystemClock.elapsedRealtime();MainActivity.Peer p=a.engine.peers.get(321);p.alias="QA UWB — 3,2 m";p.seen=now;a.engine.selectedSession=321;
                 a.engine.uwb.targetSession=321;a.engine.uwb.distance=3.2;a.engine.uwb.azimuth=25.;a.engine.uwb.measuredAt=now;a.backHorizontal=.99;a.displayRotation=0;a.postureAt=now;
                 MainActivity.Peer other=new MainActivity.Peer(322,-60);other.alias="QA — bez metara";other.seen=now;a.engine.peers.put(322,other);
+                assertEquals(3.2,a.estimate(p).meters,0);assertNotNull(a.estimate(p).angle);
+                android.graphics.Bitmap grid=android.graphics.Bitmap.createBitmap(a.ar.hud.getWidth(),a.ar.hud.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);
+                a.ar.hud.draw(new android.graphics.Canvas(grid));
+                android.content.ContentValues values=new android.content.ContentValues();values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"ar-grid.png");values.put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png");values.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/Phoenix");
+                android.net.Uri uri=a.getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values);assertNotNull(uri);
+                try(java.io.OutputStream out=a.getContentResolver().openOutputStream(uri)){assertTrue(grid.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}catch(Exception e){throw new AssertionError(e);}a.ar.hud.invalidate();
             });
             java.util.concurrent.CountDownLatch frame=new java.util.concurrent.CountDownLatch(1);scenario.onActivity(a->a.ar.hud.postOnAnimation(()->a.ar.hud.postOnAnimation(frame::countDown)));assertTrue(frame.await(5,java.util.concurrent.TimeUnit.SECONDS));
             android.graphics.Bitmap bitmap=instrumentation.getUiAutomation().takeScreenshot();assertNotNull(bitmap);

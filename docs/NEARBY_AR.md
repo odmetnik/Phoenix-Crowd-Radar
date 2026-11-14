@@ -1,4 +1,6 @@
-# Nearby + AR u 0.6.0
+# Nearby + AR u 0.6.0 — povijesna podloga
+
+Za aktualnu sesiju, Aware/RTT i AR mrežu vidi [SESSION_AUTOCONNECT_070.md](SESSION_AUTOCONNECT_070.md).
 
 ## Stvarna dodatna veza
 
