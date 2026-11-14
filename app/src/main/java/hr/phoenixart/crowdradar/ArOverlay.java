@@ -26,14 +26,15 @@ final class ArOverlay {
         root.addView(camera,new FrameLayout.LayoutParams(-1,-1));hud=new Hud();root.addView(hud,new FrameLayout.LayoutParams(-1,-1));
         Button close=activity.button("ZATVORI AR",this::close);FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(-1,activity.dp(52),Gravity.BOTTOM);cp.setMargins(activity.dp(16),0,activity.dp(16),activity.dp(20));root.addView(close,cp);
         root.setOnApplyWindowInsetsListener((v,insets)->{android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);return insets;});
-        dialog.setContentView(root);dialog.setOnDismissListener(d->release());dialog.show();
+        dialog.setContentView(root);dialog.setOnDismissListener(d->{if(generation==ticket)release();});dialog.show();
         if(dialog.getWindow()!=null)dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         var future=ProcessCameraProvider.getInstance(activity);
         future.addListener(()->{if(!open||generation!=ticket)return;try{provider=future.get();preview=new Preview.Builder().build();preview.setSurfaceProvider(camera.getSurfaceProvider());
+            if(!provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA))throw new IllegalStateException("No back camera");
             provider.bindToLifecycle(activity,CameraSelector.DEFAULT_BACK_CAMERA,preview);cameraStatus="Kamera uživo • bez snimanja";
-        }catch(Exception e){cameraStatus="Kamera nije dostupna. Zatvori AR i provjeri dozvolu / drugu aplikaciju.";}hud.invalidate();},ContextCompat.getMainExecutor(activity));
+        }catch(Exception e){cameraStatus="Kamera nije dostupna ("+e.getClass().getSimpleName()+"). Provjeri dozvolu / drugu aplikaciju.";}hud.invalidate();},ContextCompat.getMainExecutor(activity));
     }
-    void close(){if(dialog!=null)dialog.dismiss();else release();}
+    void close(){Dialog current=dialog;release();if(current!=null){current.setOnDismissListener(null);current.dismiss();}}
     void release(){open=false;generation++;if(provider!=null&&preview!=null)provider.unbind(preview);preview=null;provider=null;dialog=null;hud=null;}
     final class Hud extends View{
         final Paint paint=new Paint(3);

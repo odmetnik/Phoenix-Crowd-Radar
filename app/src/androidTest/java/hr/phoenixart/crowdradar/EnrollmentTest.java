@@ -90,6 +90,8 @@ public class EnrollmentTest {
             scenario.onActivity(a->{a.stop();a.searching=true;MainActivity.Peer peer=new MainActivity.Peer(321,-70);peer.alias="QA — smjer nije izmjeren";peer.seen=android.os.SystemClock.elapsedRealtime();a.peers.put(321,peer);a.openAr();a.ar.close();a.openAr();assertTrue(a.ar.open);});
             java.util.concurrent.atomic.AtomicBoolean bound=new java.util.concurrent.atomic.AtomicBoolean();long deadline=android.os.SystemClock.elapsedRealtime()+20000;
             do{scenario.onActivity(a->bound.set(a.ar.preview!=null&&a.ar.preview.getResolutionInfo()!=null&&a.ar.cameraStatus.startsWith("Kamera uživo")));if(!bound.get())android.os.SystemClock.sleep(100);}while(!bound.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
+            scenario.onActivity(a->System.out.println("Camera HUD: open="+a.ar.open+" status="+a.ar.cameraStatus+" preview="+(a.ar.preview!=null)));
+            if(!bound.get())captureFocusFailure();
             assertTrue("CameraX bound the back-camera preview",bound.get());
             java.util.concurrent.CountDownLatch frame=new java.util.concurrent.CountDownLatch(1);scenario.onActivity(a->a.ar.hud.postOnAnimation(()->a.ar.hud.postOnAnimation(frame::countDown)));assertTrue(frame.await(5,java.util.concurrent.TimeUnit.SECONDS));
             android.graphics.Bitmap bitmap=instrumentation.getUiAutomation().takeScreenshot();assertNotNull(bitmap);
