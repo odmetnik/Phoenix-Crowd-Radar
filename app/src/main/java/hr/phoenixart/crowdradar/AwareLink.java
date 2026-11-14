@@ -84,10 +84,10 @@ final class AwareLink {
     void range(int id){long now=SystemClock.elapsedRealtime();Member peer=members.get(id);if(!active||rtt==null||peer==null||!live(id)||now-lastRange<4000)return;lastRange=now;int ticket=generation;rangingFor=id;
         try{if(!rtt.isAvailable())return;rtt.startRanging(new RangingRequest.Builder().addWifiAwarePeer(peer.handle).build(),context.getMainExecutor(),new RangingResultCallback(){
             @Override public void onRangingFailure(int code){}
-            @Override public void onRangingResults(List<RangingResult> results){if(!valid(ticket)||!Objects.equals(focus,id))return;for(RangingResult result:results)if(result.getStatus()==RangingResult.STATUS_SUCCESS&&result.getNumSuccessfulMeasurements()>0&&result.getDistanceMm()>=0){distance=result.getDistanceMm()/1000.;spread=Math.max(0,result.getDistanceStdDevMm())/1000.;measuredAt=SystemClock.elapsedRealtime();measuredPeer=id;}}
+            @Override public void onRangingResults(List<RangingResult> results){if(!valid(ticket)||!Objects.equals(focus,id))return;for(RangingResult result:results)if(result.getStatus()==RangingResult.STATUS_SUCCESS&&result.getNumSuccessfulMeasurements()>0&&result.getDistanceMm()>=0){long stamp=result.getRangingTimestampMillis();if(!Navigation.fresh(stamp,SystemClock.elapsedRealtime(),8000))continue;distance=result.getDistanceMm()/1000.;spread=Math.max(0,result.getDistanceStdDevMm())/1000.;measuredAt=stamp;measuredPeer=id;}}
         });}catch(RuntimeException ignored){}
     }
     void stop(){active=false;attaching=false;generation++;main.removeCallbacksAndMessages(null);queue.clear();sending=false;members.clear();pubFrames.clear();subFrames.clear();
-        if(pub!=null)pub.close();if(sub!=null)sub.close();if(attached!=null)attached.close();pub=null;sub=null;attached=null;
+        try{if(pub!=null)pub.close();}catch(RuntimeException ignored){}try{if(sub!=null)sub.close();}catch(RuntimeException ignored){}try{if(attached!=null)attached.close();}catch(RuntimeException ignored){}pub=null;sub=null;attached=null;
         if(key!=null)Arrays.fill(key,(byte)0);key=null;distance=spread=null;measuredAt=0;status="Wi-Fi Aware isključen";}
 }

@@ -23,7 +23,7 @@ public final class RadarService extends Service {
         }catch(RuntimeException e){engine.stop();engine.note="Android nije dopustio rad servisa. Ponovno pokreni radar iz otvorene aplikacije.";stopSelf();}
         return START_NOT_STICKY;
     }
-    void update(){long now=SystemClock.elapsedRealtime();if(now-lastUpdate<10000)return;lastUpdate=now;getSystemService(NotificationManager.class).notify(ID,notification());}
+    void update(){if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)return;long now=SystemClock.elapsedRealtime();if(now-lastUpdate<10000)return;lastUpdate=now;getSystemService(NotificationManager.class).notify(ID,notification());}
     void signal(String title){if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)return;
         getSystemService(NotificationManager.class).notify(711,new Notification.Builder(this,ALERTS).setSmallIcon(android.R.drawable.ic_menu_mylocation).setContentTitle(title).setContentText("Otvori Phoenix Crowd Radar").setContentIntent(open()).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE).build());}
     @Override public IBinder onBind(Intent intent){return null;}

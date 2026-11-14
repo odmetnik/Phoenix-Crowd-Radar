@@ -199,7 +199,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             java.util.List<Peer> candidates=new ArrayList<>();for(Peer p:engine.peers.values())if(canMessage(p)&&peerFresh(p))candidates.add(p);
             if(candidates.isEmpty()){engine.mailStatus="Nema člana s aktivnom podrškom za poruke. Na oba telefona treba verzija 0.5 ili novija.";return;}
             String[] names=new String[candidates.size()];for(int i=0;i<names.length;i++)names[i]=candidates.get(i).alias;
-            new AlertDialog.Builder(this).setTitle("Poruka za člana").setItems(names,(d,i)->{engine.selectedSession=candidates.get(i).id;engine.focus(engine.selectedSession);composeMessage();}).setNegativeButton("Odustani",null).show();return;
+            new AlertDialog.Builder(this).setTitle("Poruka za člana").setItems(names,(d,i)->{engine.focus(candidates.get(i).id);composeMessage();}).setNegativeButton("Odustani",null).show();return;
         }
         if(!canMessage(peer)||!peerFresh(peer)){engine.mailStatus="Odabrani član nema aktivnu podatkovnu vezu za poruke. Oba telefona trebaju 0.5 ili noviju verziju.";return;}
         EditText input=new EditText(this);input.setSingleLine();input.setHint("Kratka poruka — do 48 znakova");input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(48)});
@@ -266,7 +266,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         EditText input=new EditText(this);input.setText(engine.own.name);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
         new AlertDialog.Builder(this).setTitle("Moje ime / uređaj").setMessage(engine.own.model+"\nPodržano: "+Capabilities.supported(engine.own.caps)+"\n\nOvo je podrška hardvera, ne potvrda aktivnog preciznog mjerenja.")
             .setView(input).setPositiveButton("Spremi",(d,w)->{String name=input.getText().toString().trim();if(name.isEmpty())return;
-                getSharedPreferences("identity",0).edit().putString("name",name).apply();engine.own=DeviceProfile.local(this);engine.profiles.engine.own=engine.own;updateGroup();refreshHardware();})
+                getSharedPreferences("identity",0).edit().putString("name",name).apply();engine.own=DeviceProfile.local(this);engine.profiles.own=engine.own;updateGroup();refreshHardware();})
             .setNegativeButton("Odustani",null).show();
     }
     void editGroupName(){
@@ -383,7 +383,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         }
         return e;
     }
-    String measurementText(Peer peer){Estimate e=estimate(peer);String distance=Double.isFinite(e.meters)?String.format(Locale.ROOT,"%s %.1f m",e.distanceSource,e.meters):(engine.nearby.live(peer.id)?"Nearby veza • bez metara":"BLE blizina • bez metara");
+    String measurementText(Peer peer){Estimate e=estimate(peer);String distance=Double.isFinite(e.meters)?String.format(Locale.ROOT,"%s %.1f m",e.distanceSource,e.meters):(e.distanceSource+" • bez metara");
         return distance+" • "+e.directionSource+(e.note.isEmpty()?"":"\n"+e.note);}
     void refreshMembers(){refreshHardware();if(findPending&&engine.searching&&!engine.peers.isEmpty()){findPending=false;choosePeer();}renderDashboard();}
     final Runnable tick=new Runnable(){public void run(){if(!visible)return;refreshMembers();handler.postDelayed(this,1000);}};
