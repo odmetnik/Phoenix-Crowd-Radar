@@ -160,8 +160,17 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     void showHelp(){
         try(java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(getAssets().open("help.txt"),StandardCharsets.UTF_8))){
             StringBuilder text=new StringBuilder();String line;while((line=reader.readLine())!=null)text.append(line).append('\n');
-            TextView content=label(text.toString(),14,Color.WHITE);content.setPadding(dp(18),dp(12),dp(18),dp(20));content.setTextIsSelectable(true);
-            ScrollView scroll=new ScrollView(this);scroll.addView(content);new AlertDialog.Builder(this).setTitle("Phoenix Crowd Radar • pomoć").setView(scroll).setPositiveButton("Zatvori",null).show();
+            String full=text.toString();
+            String[] titles={"Brzi početak","Bluetooth / BLE","GPS / GNSS","UWB traženje","Kompas","QR, kod i Wi-Fi","Radar i preciznost","Privatnost i ograničenja","Promjene verzije","Cijela pomoć"};
+            String[] markers={"BRZI POČETAK","BLE — BLIZINA","GPS / GNSS —","UWB — IZRAVNO","KOMPAS I ORIJENTACIJA","QR, BROJČANI KOD","KAKO ČITATI RADAR","PRIVATNOST I OGRANIČENJA","PROMJENE —"};
+            new AlertDialog.Builder(this).setTitle("Pomoć • "+appVersion()).setItems(titles,(d,which)->{
+                String content=full;
+                if(which<markers.length){int start=full.indexOf(markers[which]);int end=which+1<markers.length?full.indexOf(markers[which+1]):full.length();
+                    if(start>=0&&end>start)content=full.substring(start,end).trim();}
+                TextView view=label(content,14,Color.WHITE);view.setPadding(dp(18),dp(12),dp(18),dp(20));view.setTextIsSelectable(true);
+                ScrollView scroll=new ScrollView(this);scroll.addView(view);
+                new AlertDialog.Builder(this).setTitle(titles[which]).setView(scroll).setPositiveButton("Zatvori",null).setNeutralButton("Teme",(x,y)->showHelp()).show();
+            }).setNegativeButton("Zatvori",null).show();
         }catch(java.io.IOException e){status.setText("Pomoć nije dostupna u instalaciji.");}
     }
     void toggleGps(){
@@ -319,6 +328,10 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         boolean hasMeters=false;for(Peer peer:peers.values())if(Double.isFinite(estimate(peer).meters))hasMeters=true;
         rangeMode.setText(hasMeters?"METRI IZ MJERENJA • TOČKA SAMO UZ VALJAN SMJER":"JAČINA BLE SIGNALA • BEZ METARA I SMJERA");
         refreshHardware();
+        if(searching){
+            if(selectedSession!=null&&uwb.targetSession==selectedSession)status.setText(uwb.status);
+            else if(gps.sharing)status.setText(gps.state);
+        }
     }
     void demoRow(String name,String info,int color) {
         TextView v=label(name+"\n"+info,13,color);v.setPadding(dp(12),dp(8),dp(12),dp(8));v.setBackgroundColor(PANEL);

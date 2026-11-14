@@ -1,6 +1,7 @@
 VERSION: 0.3.0-dev
 PHOENIX CROWD RADAR — POMOĆ
 Ažurirano: 14. 11. 2026.
+Pomoć se otvara po temama; odaberi Brzi početak ili pojedinu tehnologiju.
 
 BRZI POČETAK
 1. U Moj profil upiši svoje ime. U Grupa promijeni naziv događaja i kreiraj grupu.
@@ -51,4 +52,5 @@ PROMJENE — 0.3.0-dev
 • Dodan izbor izvora, provjera nesigurnosti i skrivanje zastarjelih/nekonzistentnih smjerova.
 • Uveden stalni javni ključ za razvojne APK-ove. Prethodna 0.2 može tražiti deinstalaciju i ponovno pridruživanje grupi; buduće razvojne nadogradnje koriste isti ključ.
 • Android izrada koristi SDK 36 zbog Jetpack UWB biblioteke; minimalna instalacija ostaje Android 12.
+• Pomoć je pregledna po temama, a status GPS/UWB-a na glavnom ekranu osvježava se tijekom rada.
 • Dodan ovaj Help. Svaka nadogradnja mora ažurirati Help; CI provjerava verziju i promjenu pomoći uz kod.
