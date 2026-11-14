@@ -1,6 +1,8 @@
 'use strict';
 const $=id=>document.getElementById(id),cyan='#31f1f6',green='#65f8b2',amber='#ffcb4d';
 let state={group:'MOJA GRUPA',hasGroup:false,demo:false,running:false,members:[],status:'Kreiraj grupu ili se pridruži kolegama.',heading:null,version:''},tab='radar';
+const geometry=window.RadarGeometry,zoom=new geometry.Zoom();
+let radarFit=geometry.fit([],null);
 function act(action,id){if(window.Phoenix)window.Phoenix.action(action,id==null?'':String(id));else{state.status='Pregled sučelja: ova radnja koristi Android na telefonu.';if(action==='demo'){state.demo=!state.demo;state.running=false;state.members=state.demo?demoMembers():[];}if(action==='radar')state.status='Pokretanje Bluetootha dostupno je u Android aplikaciji.';render();}}
 function demoMembers(){return [{id:1,name:'Marko',source:'UWB',meters:12,angle:50,sim:true},{id:2,name:'Ana',source:'GPS',meters:38,angle:224,sim:true},{id:3,name:'Ivan',source:'BLE',meters:null,angle:null,sim:true}];}
 function switchTab(next){tab=next;for(const name of ['radar','group','ping'])$(name+'Page').hidden=name!==tab;document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));window.scrollTo(0,0);}
@@ -12,12 +14,14 @@ function render(){
  $('status').textContent=state.status;$('start').textContent=state.running?'ZAUSTAVI RADAR':'POKRENI RADAR';$('start').classList.toggle('running',state.running);$('demo').textContent=state.demo?'ISKLJUČI DEMO':'DEMO IZGLEDA';
  $('version').textContent=state.version?'v'+state.version:'';$('gps').textContent=state.gps?'ISKLJUČI GPS DIJELJENJE':'UKLJUČI GPS DIJELJENJE';
  $('hardware').textContent=state.hardware||'';$('groupInfo').textContent=state.hasGroup?state.group+'\n'+(state.own||''):'Još nisi u grupi. Kreiraj je ili se pridruži pozivnicom.';
+ $('mailStatus').textContent=state.mailStatus||'';$('pingLabel').textContent=state.unread>0?'PING ('+state.unread+')':'PING';
+ radarFit=geometry.fit(state.members,state.selected);if(radarFit.metric)zoom.set(radarFit.target,radarFit.focused?state.selected:null,performance.now());
  $('pingTarget').textContent=state.selectedName?'Odabrano: '+state.selectedName:'Na radaru prvo odaberi člana.';
- $('scale').textContent=state.demo?'SIMULACIJA · NEMA STVARNIH MJERENJA':(state.heading==null?'KOMPAS —':'NAPRIJED '+String(Math.round(state.heading)).padStart(3,'0')+'° MAG')+' · '+(state.members.some(m=>Number.isFinite(m.meters)&&!m.stale)?'RADIJUS '+Math.max(10,Math.ceil(Math.max(0,...state.members.filter(m=>!m.stale).map(m=>Number.isFinite(m.meters)?m.meters:0))/10)*10)+' m':'BLE BEZ METARA I SMJERA');
+ $('scale').textContent=state.demo?'SIMULACIJA · NEMA STVARNIH MJERENJA':(state.motion||'');
  const list=$('members');list.replaceChildren();if(!state.members.length){const p=document.createElement('div');p.className='empty';p.textContent=state.running?'Tražim članove iste grupe… Na drugom telefonu pokreni radar.':'Pokreni radar za traženje članova. GRUPA otvara pozivnice i uparivanje.';list.append(p);}
  state.members.forEach((m,i)=>{const b=document.createElement('button');b.className='member'+(state.selected===m.id?' selected':'');b.style.setProperty('--tone',color(m));b.setAttribute('aria-label',m.name+', '+details(m)+(m.stale?', zadnje viđen':''));
  const num=document.createElement('span');num.className='number';num.textContent=String(i+1).padStart(2,'0');const name=document.createElement('span');name.className='name';name.textContent=m.name;
- const detail=document.createElement('span');detail.className='measure';const icon=document.createElement('img');icon.alt='';icon.src='icons/'+(m.source==='UWB'?'broadcast':m.source.startsWith('GPS')?'map-pin':'bluetooth')+'.svg';const text=document.createElement('span');text.textContent=m.stale?'ZADNJE VIĐEN':details(m);detail.append(icon,text);b.append(num,name,detail);b.onclick=()=>act('select',m.id);list.append(b);});
+ const detail=document.createElement('span');detail.className='measure';const icon=document.createElement('img');icon.alt='';icon.src='icons/'+(m.source==='UWB'?'broadcast':m.source.startsWith('GPS')?'map-pin':'bluetooth')+'.svg';const text=document.createElement('span');text.textContent=m.stale?'ZADNJE VIĐEN':details(m);if(!m.stale&&geometry.measured(m)&&!Number.isFinite(m.angle)){const hint=document.createElement('small');hint.className='direction-note';hint.textContent='SMJER NIJE IZMJEREN';text.append(hint);}if(!m.stale&&geometry.measured(m)&&m.meters>radarFit.target){const hint=document.createElement('small');hint.className='direction-note';hint.textContent='IZVAN TRENUTNE SKALE';text.append(hint);}detail.append(icon,text);b.append(num,name,detail);b.onclick=()=>act('select',m.id);list.append(b);});
 }
 function details(m){return m.source+' · '+(Number.isFinite(m.meters)?(m.source.startsWith('GPS')?'~ ':'')+Number(m.meters.toFixed(1))+' m': 'SMJER NEPOZNAT');}
 function color(m){return m.stale?'#5b808b':m.source==='UWB'?cyan:m.source.startsWith('GPS')?green:amber;}
@@ -32,10 +36,18 @@ function draw(time){
  ctx.restore();for(let i=1;i<=4;i++)ring(r*i/4,i===4?cyan:'#32d6df88',i===4?1.5:.6,i===4?7:0);line(x-r,y,x+r,y,'#42e0e9aa',.7);line(x,y-r,x,y+r,'#42e0e9aa',.7);
  ctx.font=(w*.038)+'px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#b8f9ff';
  for(let i=0;i<72;i++){const a=i*Math.PI/36,outer=r-(i%6===0?8:4);line(x+Math.sin(a)*r,y-Math.cos(a)*r,x+Math.sin(a)*outer,y-Math.cos(a)*outer,'#54f5fa',i%6===0?1.1:.6);if(i%6===0)ctx.fillText(i*5+'°',x+Math.sin(a)*(r+w*.044),y-Math.cos(a)*(r+w*.044));}
- const metric=state.members.some(m=>Number.isFinite(m.meters)&&!m.stale),scale=Math.max(10,Math.ceil(Math.max(0,...state.members.filter(m=>!m.stale).map(m=>Number.isFinite(m.meters)?m.meters:0))/10)*10);
- state.members.forEach((m,i)=>{if(m.stale)return;const col=color(m);if(Number.isFinite(m.meters)&&m.angle!=null){const rad=state.demo?(i===0?r*.51:r*.77):r*Math.min(.94,m.meters/scale),a=m.angle*Math.PI/180,px=x+Math.sin(a)*rad,py=y-Math.cos(a)*rad;ctx.shadowColor=col;ctx.shadowBlur=14*dpr;ctx.fillStyle=col;ctx.beginPath();ctx.arc(px,py,w*.018,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle=col;ctx.lineWidth=1.2;const bw=w*.075,bh=w*.045;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(px+6,py-bh-7,bw,bh,4);else ctx.rect(px+6,py-bh-7,bw,bh);ctx.stroke();ctx.fillStyle=col;ctx.font='bold '+(w*.038)+'px Arial';ctx.fillText(String(i+1).padStart(2,'0'),px+6+bw/2,py-bh/2-7);}else if(Number.isFinite(m.meters)||!metric||state.demo){ring(state.demo?r*.84:Number.isFinite(m.meters)?r*Math.min(.94,m.meters/scale):r*.84,Number.isFinite(m.meters)?col:amber,1.8,14);}});
+ const metric=radarFit.metric,scale=zoom.tick(time);
+ const caption=(state.demo?'DEMO · ':state.heading==null?'KOMPAS — · ':'NAPRIJED '+String(Math.round(state.heading)%360).padStart(3,'0')+'° MAG · ')+(metric?'RADIJUS '+geometry.format(scale)+' m'+(radarFit.focused?' · FOKUS':' · AUTO'):'BLE BEZ METARA I SMJERA')+(state.motion?' · '+state.motion:'');if($('scale').textContent!==caption)$('scale').textContent=caption;
+ if(metric){ctx.font=(w*.027)+'px monospace';ctx.fillStyle='#bafaff';for(let i=1;i<=4;i++){const a=140*Math.PI/180;ctx.fillText(geometry.format(scale*i/4)+' m',x+Math.sin(a)*r*i/4+7,y-Math.cos(a)*r*i/4);}}
  ctx.fillStyle='#02151b';ctx.beginPath();ctx.arc(x,y,r*.22,0,Math.PI*2);ctx.fill();ring(r*.22,'#43e7ee',.8);
  ctx.save();ctx.translate(x,y-2);ctx.fillStyle=cyan;ctx.shadowColor=cyan;ctx.shadowBlur=15*dpr;ctx.beginPath();ctx.moveTo(0,-r*.12);ctx.lineTo(r*.08,r*.065);ctx.lineTo(0,r*.035);ctx.lineTo(-r*.08,r*.065);ctx.closePath();ctx.fill();ctx.restore();ctx.fillStyle='#bafaff';ctx.font='bold '+(w*.050)+'px Arial';ctx.fillText('TI',x,y+r*.14);
+ state.members.forEach((m,i)=>{
+  if(m.stale)return;const col=color(m),measured=geometry.measured(m),point=measured?geometry.position(m.meters,m.angle,scale,r):null;
+  if(point){const px=x+point.x,py=y+point.y;ctx.shadowColor=col;ctx.shadowBlur=14*dpr;ctx.fillStyle=col;ctx.beginPath();ctx.arc(px,py,w*.018,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#efffff';ctx.lineWidth=.8;ctx.stroke();
+   const lx=x+point.lx,ly=y+point.ly,bw=w*.09,bh=w*.05,bx=Math.max(2,Math.min(w-bw-2,lx+5)),by=Math.max(2,Math.min(w-bh-2,ly-bh-6));
+   line(px,py,bx+2,by+bh,col,.7);ctx.strokeStyle=col;ctx.lineWidth=1.2;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(bx,by,bw,bh,4);else ctx.rect(bx,by,bw,bh);ctx.fillStyle='#02151b';ctx.fill();ctx.stroke();ctx.fillStyle=col;ctx.font='bold '+(w*.035)+'px Arial';ctx.fillText(String(i+1).padStart(2,'0')+(point.outside?'>':''),bx+bw/2,by+bh/2);
+  }else if(measured||!metric){ring(measured?r*Math.min(.96,m.meters/scale):r*.84,measured?col:amber,1.8,14);}
+ });
  if(!state.running&&!state.demo){ctx.fillStyle='#7fa7af';ctx.font=(w*.025)+'px monospace';ctx.fillText('RADAR ZAUSTAVLJEN',x,y-r*.45);}
  if(anim)frame=requestAnimationFrame(draw);
 }

@@ -1,11 +1,15 @@
-# Phoenix Crowd Radar — 0.4.0-dev
+# Phoenix Crowd Radar — 0.5.0-dev
 
 Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GPS razmjena i UWB sesija za odabrani par. Phoenix Art / by Željko Kušter.
 
 **Aktualna kompilacija i Android lint: GitHub Actions. Fizička UWB/BLE/GPS kompatibilnost i preciznost još nisu potvrđeni na telefonima.** APK je razvojni i zahtijeva Android 12+.
 
-## Što radi 0.4
+## Što radi 0.5
 
+- Dinamički AUTO/FOKUS zum, glatki prijelazi, metarske oznake i vidljivi bliski članovi. Bez smjera prikazujemo krug i upozorenje.
+- Kratke Bluetooth poruke do 48 znakova s potvrdom primitka, zasebnim šifriranim kanalom i prolaznom poviješću. Oba telefona trebaju 0.5+; Wi-Fi transport poruka nije ugrađen.
+- Lokalna procjena kretanja iz linearnog ubrzanja ili filtriranog akcelerometra; ne računa položaj druge osobe.
+- AR strelice i imena su sljedeća faza, još nisu ugrađeni.
 - Offline HTML/Canvas cyber sučelje prema referenci, animirani radar i odvojene kartice RADAR / GRUPA / PING.
 - Jasno kreiranje/pridruživanje pri prvom pokretanju; QR i brojčana pozivnica nude kreiranje grupe ako nedostaje.
 - Kreiranje grupe, promjenjiv naziv, korisnička imena i kartice mogućnosti telefona.
@@ -50,6 +54,6 @@ Od 0.3 koristimo stalan javni razvojni potpisni ključ (`signing/README.md`), na
 
 ## Provjere i privatnost
 
-40 provjera čiste Java jezgre obuhvaća geometriju, pogreške, starost, neslaganje izvora, položaj antene, grupne pakete i šifriranje. Parser izvora nije zamjena za Android build. CI uključuje Android emulator smoke test spremanja grupnog ključa, QR dijaloga, uvoza pozivnice i početnog postupka. Fizička radio-kompatibilnost mora se provjeriti odvojeno. Vizualni prikaz provjeren je na snimci stvarnog Android WebViewa. Cloud pregled ostao je mrežno blokiran. Ponovljeni CI UI testovi imaju nestabilan fokus prozora; uzrok još nije potvrđen. Isporučeni APK je iz uspješne izrade s tri prošla Android testa i istim produkcijskim izvorima kao main; vidi design-qa.md.
+40 provjera čiste Java jezgre obuhvaća geometriju, pogreške, starost, neslaganje izvora, položaj antene, grupne pakete i šifriranje. Parser izvora nije zamjena za Android build. CI uključuje Android emulator smoke test spremanja grupnog ključa, QR dijaloga, uvoza pozivnice i početnog postupka. Fizička radio-kompatibilnost mora se provjeriti odvojeno. Vizualni prikaz provjeren je na snimci stvarnog Android WebViewa. Cloud pregled ostao je mrežno blokiran. Ponovljeni CI UI testovi imaju nestabilan fokus prozora; uzrok još nije potvrđen. Paket APK-a objavljuje se tek nakon prolaska builda, linta i testova jezgre/UI logike. Testovi fizičkog prijenosa poruka i senzora na dva telefona moraju se potvrditi odvojeno; vidi design-qa.md za ograničenja prethodne vizualne provjere.
 
 Grupni ključ spremljen je pomoću Android Keystorea; sadržaj GATT-a šifriran AES-GCM-om. Koordinate i UWB ključevi sesije ne spremaju se u datoteke ili logove. Svaki član koji posjeduje grupni ključ ima pristup grupnim podacima. Prisutnost hardvera i imena/modeli iz profila nisu sigurnosna atestacija. Detalji su u Help-u i docs/UWB_GPS.md.

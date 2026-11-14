@@ -1,4 +1,4 @@
-VERSION: 0.4.0-dev
+VERSION: 0.5.0-dev
 PHOENIX CROWD RADAR — POMOĆ
 Ažurirano: 14. 11. 2026.
 Pomoć se otvara po temama; odaberi Brzi početak ili pojedinu tehnologiju.
@@ -17,7 +17,7 @@ GATT je Bluetooth podatkovna veza. Njome razmjenjujemo profile, lokaciju kada je
 GPS / GNSS — LOKACIJA NA OTVORENOM
 GNSS prijamnik dobiva koordinate sa satelita; za samu GPS lokaciju ne treba internet. Aplikacija koristi Android GPS provider. U zatvorenom GPS može biti nedostupan ili netočan. Internet nije zamjena za kvalitetan satelitski signal.
 Lokaciju počinjemo dijeliti tek nakon zasebnog uključivanja GPS dijeljenja. Svaki telefon mora uključiti svoje dijeljenje. Podaci idu lokalnom šifriranom vezom članovima grupe, ne našem serveru. GNSS lokacija sama ne proširuje domet Bluetooth veze: bez podatkovne veze ne dobivamo nove koordinate kolege.
-Oznaka GPS ~ znači približnu udaljenost iz dviju koordinata. Prikazujemo procjene pogreške obaju telefona. To nisu zajamčene granice pogreške. Čuvamo i starost lokacije, računatu monotoničkim satom uz konzervativno uračunato kašnjenje prijenosa. Lokacije starije od 10 sekundi ne prikazujemo kao aktualne. Lažne/mock lokacije ova verzija odbija.
+Oznaka GPS ~ znači približnu udaljenost iz dviju koordinata. Procjene pogreške obaju telefona dostupne su u detaljima člana. To nisu zajamčene granice pogreške. Čuvamo i starost lokacije, računatu monotoničkim satom uz konzervativno uračunato kašnjenje prijenosa. Lokacije starije od 10 sekundi ne prikazujemo kao aktualne. Lažne/mock lokacije ova verzija odbija.
 GPS smjer prikazujemo samo kada su lokacije dovoljno svježe i dovoljno precizne u odnosu na njihov razmak te imamo pouzdan kompas. Kada se područja pogreške znatno preklapaju, nema strelice.
 
 UWB — IZRAVNO MJERENJE IZMEĐU TELEFONA
@@ -28,6 +28,8 @@ Pogrešku UWB-a ne izmišljamo ako je sustav ne daje. Broj decimala nije jamstvo
 Ako nema mjerenja, provjerite UWB postavku, dopuštenje, otvorenu aplikaciju i odabir na oba telefona, pa ponovno pokrenite traženje. Neki parovi/uloge uređaja nisu kompatibilni.
 
 KOMPAS I ORIJENTACIJA
+Akcelerometar mjeri ubrzanje telefona. Ova verzija očitava TYPE_LINEAR_ACCELERATION (bez gravitacije) kada je dostupan, inače filtrira gravitaciju iz običnog akcelerometra. Procjena jačine ubrzanja/RMS i status „Telefon miruje / kreće se” lokalni su pokazatelji kretanja. Očitavanje počinje nakon kratkog zagrijavanja; zastarjeli podaci ne prikazuju se kao aktualni. Senzor se gasi s pauziranjem aplikacije.
+Akcelerometar NE daje smjer prema kolegi ni njegov položaj. Ne integriramo ubrzanje u izmišljene metre; ne zamjenjuje UWB, GPS ni pouzdanu orijentaciju. Androidov senzor rotacije već spaja dostupne senzore radi orijentacije. Pokazatelj kretanja ne povećava deklariranu točnost UWB/GPS-a.
 Senzor rotacije koristi senzore orijentacije telefona. Za GPS smjer dodajemo magnetsku deklinaciju iz svježe vlastite lokacije da bismo koristili pravi sjever. Metal i magneti mogu poremetiti kompas. Nepouzdanu ili zastarjelu orijentaciju ne koristimo za GPS strelicu.
 Dok je telefon uspravan, naprijed je smjer iza njegove stražnje strane; kada ga držite položenog, naprijed je gornji rub. Za UWB kut ova verzija podržava samo uspravan portret.
 
@@ -35,11 +37,21 @@ QR, BROJČANI KOD I WI-FI
 QR sadrži grupni ključ i naziv grupe. Pokaži ga samo kolegama. Brojčano uparivanje koristi Google Nearby Connections: oba telefona trebaju Google Play usluge, Bluetooth i Wi-Fi. Internet i povezivanje na router nisu potrebni. Na prvom telefonu odaberi GRUPA → Dodaj člana brojem. Na drugom odaberi Pridruži se brojem i pričekaj da se pojavi prvi telefon. Odaberi ga. Tek tada se na prvom telefonu pojavi broj: upiši ga na drugom, a prvi mora odobriti dodavanje. To NIJE telefonski broj niti unaprijed zadani broj grupe. Kratki broj potvrđuje šifriranu vezu; on nije grupni ključ. Dodavanje je otvoreno najviše 90 sekundi.
 Nearby može koristiti Bluetooth i Wi-Fi kao podatkovni transport. Wi-Fi Aware i Wi-Fi RTT hardversku podršku prikazujemo u profilu, ali ova verzija NE pokreće Wi-Fi RTT mjerenje. Wi-Fi signal sam ne daje smjer druge osobe. Google Nearby SDK ima vlastitu analitiku prema Googleovoj dokumentaciji.
 
+PORUKE I PING
+PING → Napiši kratku poruku šalje odabranom članu do 48 znakova preko šifriranog Bluetooth GATT kanala. Ako nitko nije odabran, nudi aktivne članove s podrškom za poruke. Oba telefona trebaju verziju 0.5 ili noviju i pokrenut radar. Za tekstualne poruke ova verzija koristi BLE, bez Wi-Fi veze i bez interneta. Nearby i Wi-Fi ostaju dostupni za brojčano uparivanje, nisu transport tekstualnih poruka.
+Poruke imaju zaseban kanal kako ne bi povećale GPS/UWB paket. Jedna odlazna poruka istodobno čeka potvrdu najviše 60 sekundi; dok čeka, novu ne šaljemo. ČEKA POTVRDU nije dostava. DOSTAVLJENO znači da je druga aplikacija primila i prihvatila poruku, ne da ju je osoba pročitala. NIJE POTVRĐENO znači da potvrda nije stigla na vrijeme. Ako kasnije ipak stigne valjana potvrda, zapis postaje DOSTAVLJENO NAKNADNO. PREKINUTO znači da je radar zaustavljen prije potvrde. Veza i domet ograničeni su Bluetoothom. Podrška nove karakteristike provjerava se na drugom uređaju.
+Ponovljeni isti zahtjev ne dodaje duple poruke. Potvrde su vezane uz nasumičan ID i odabranog pošiljatelja. Poruke su adresirane jednom članu, ali šifriranje koristi zajednički grupni ključ: to nije zasebno privatno šifriranje između dvije osobe u odnosu na ostale članove grupe.
+Prikazujemo do 20 zapisa samo u memoriji procesa, bez spremanja u datoteke, logove, oblak ili obavijesti izvan otvorene aplikacije. Zaustavljanje prekida čekanje dostave; povijest ostaje u memoriji dok proces postoji. Promjena/napuštanje grupe briše povijest. Novi primitak kratko se prikaže i dostupan je u Poruke / potvrde dostave.
+Zvučni PING ostaje odvojen od tekstualne poruke i u ovoj verziji nema potvrdu primitka.
+
 KAKO ČITATI RADAR / PRECIZNOST
+Dinamička skala: radar i oznake automatski prelaze kroz radijuse 0,5 / 1 / 2 / 5 / 10 / 20 / 50 m i veće. Pri 0,6 m radijus može biti 1 m, umjesto fiksnih 10 m. Prstenovi nose svoje metarske oznake. Prijelaz zuma je gladak; smanjivanje radijusa malo čeka kako očitanja ne bi stalno trzala skalu.
+AUTO obuhvaća sve aktualne članove s metrima. Ako je odabrani član izmjeren, FOKUS prilagođava zum njemu. Drugi član izvan te skale dobiva oznaku IZVAN TRENUTNE SKALE; ako ima valjan smjer, oznaka na rubu ima znak >. Njegova stvarna udaljenost ostaje na kartici. Podaci koji su zastarjeli ne određuju skalu. Bez metara nema metarskog mjerila.
+Oznake članova crtaju se poslije središta TI. Kod vrlo malog razmaka natpis se pomakne i poveže crtom sa stvarnom pozicijom točke, umjesto da ga centar prekrije. Natpis nije izmjerena pozicija. Udaljenost bez valjanog smjera prikazuje se prstenom i jasnim tekstom SMJER NIJE IZMJEREN; ne izmišljamo kut na temelju kompasa ili akcelerometra.
 Sučelje radi lokalno u Android WebViewu iz HTML/CSS/JavaScript datoteka zapakiranih u APK. Ne preuzima stranicu s interneta. Bluetooth, QR kamera, GPS i UWB koriste Android kod. Animirani snop je vizualni indikator aktivnosti, nije fizičko skeniranje kuta. RADAR, GRUPA i PING su odvojene kartice. DEMO / KONCEPT prikazuje tri simulirana člana; uključivanje demo načina zaustavlja stvarni radar. Podaci demo prikaza ne predstavljaju stvarno locirane ljude.
 TRAŽI OSOBU pokreće radar ako je zaustavljen, a zatim nudi popis otkrivenih članova. Dodir na člana otvara detalje, hardverske mogućnosti i Traži UWB. Bez valjanog smjera nema točke. Žuti krug označava BLE bez smjera, nije izmjerena udaljenost.
 PING šalje zahtjev za kratki zvučni signal odabranom aktivnom članu kroz šifriranu razmjenu stanja. Oba telefona moraju imati otvorenu aplikaciju i razmijenjene profile. Zahtjev se nudi 10 sekundi, pojedini se zahtjev reproducira jednom. Nema potvrde primitka; pripremljeni ping nije potvrda dostave. Čujnost ovisi o postavkama glasnoće i Ne ometaj. Ping ne mjeri udaljenost. PING kartica sadrži i GPS dijeljenje, zaustavljanje UWB-a i pomoć.
-Točka: imamo svježu udaljenost i valjan smjer. Krug bez točke: postoji udaljenost, ali smjer nije dostupan. Kada postoje metarske vrijednosti, radijus radara je automatski označen u metrima; BLE članovi bez mjerenja ostaju na popisu i ne dobivaju lažnu poziciju u tom mjerilu. Kada nema metara, žuti prsten označava članove bez mjerenja smjera; jačinu signala i pojedinačne detalje provjeri dodirom na člana.
+Točka: imamo svježu udaljenost i valjan smjer. Krug bez točke: postoji udaljenost, ali smjer nije dostupan. Kada postoje metarske vrijednosti, radijus radara i prstenovi označeni su u metrima; BLE članovi bez mjerenja ostaju na popisu i ne dobivaju lažnu poziciju u tom mjerilu. Kada nema metara, žuti prsten označava članove bez mjerenja smjera; jačinu signala i pojedinačne detalje provjeri dodirom na člana.
 Kartice odvajaju podržani hardver od aktivnog izvora. Za udaljenost prednost ima svjež UWB, zatim valjan GPS, zatim BLE bez metara. Izvor udaljenosti i izvor smjera mogu se razlikovati i prikazani su zasebno. GPS ~ nije jednako UWB mjerenju. Kada se GPS koordinate poklope, 0 m ostaje procjena s pogreškom, a nije dokaz da telefoni fizički stoje na istom mjestu.
 DEMO je simulacija: prikazane osobe nisu stvarno pronađene i pravi radio/GPS/UWB su zaustavljeni.
 
@@ -48,18 +60,12 @@ Koristimo AES-GCM za sadržaj GATT poruka i HMAC za grupne BLE oglase. Grupni kl
 Imena i mogućnosti su podaci koje prijavljuje aplikacija drugog člana, nisu dokaz identiteta ni hardverska atestacija. BLE oglasi imaju privremeni ID i vremenski prozor; ne jamčimo zaštitu od svih replay/relay napada. Koristi novu grupu za novi događaj. Za uklanjanje osobe preostali trebaju novu grupu.
 Koordinate i UWB ključeve sesije ne zapisujemo u datoteke, izvještaje ili logove. Nakon Stop/GPS isključeno novi podaci se ne šalju; zadnji primljeni podatak na drugom telefonu prestaje vrijediti prema pravilima starosti. Aplikacija nema mesh, server za udaljeno praćenje, PING niti rad u pozadini. Ne jamči pokrivenost cijelog sajma. Izrada APK-a i testovi ne potvrđuju fizičku UWB kompatibilnost.
 
-PROMJENE — 0.4.0-dev
-• Snop radara i sjaj prilagođeni su gustoći Android ekrana; snop je samo animacija aktivnosti, ne mjerenje smjera.
-• Donja navigacija ostaje dostupna pri dnu ekrana; duži popisi i dodatne kontrole mogu se pomicati. Manji ekrani imaju kompaktniji radar.
-• Okvir prikaza poštuje Android sistemsku statusnu i navigacijsku traku, uključujući prisilni edge-to-edge prikaz na Androidu 15.
-• Naziv događaja iznad radara može se mijenjati dodirom, uključujući demo prikaz; Interliber nije fiksan tekst.
-• Veličina kružnog prikaza usklađena je s užim radarom iz reference; kartice ostaju pune širine.
-• Lokalno uključen font Orbitron; stariji WebView ima zamjenski način crtanja oznaka.
-• Novi cyber prikaz prema referentnoj slici: stupnjevi, animirani snop, svjetleći okvir, kartice i donja navigacija.
-• RADAR i GRUPA imaju različite funkcije. Dodan postupak kreiranja/pridruživanja pri prvom pokretanju.
-• QR i poziv brojem nude kreiranje grupe ako nedostaje. Brojčano dodavanje prikazuje dijalog čekanja i jasne upute za oba telefona.
-• Radio sesije zaustavljaju se pri izlasku aplikacije iz vidljivog stanja, umjesto pri svakom privremenom gubitku fokusa tijekom sistemskih dijaloga.
-• Greška BLE-a zaustavlja i povezane GPS/UWB sesije; povratak nakon izlaska jasno prikazuje zaustavljanje.
-• Dodani provjera sistemske Lokacije za BLE i vidljiviji kodovi grešaka uparivanja/spremanja.
-• Dodan zvučni ping kroz šifriranu razmjenu stanja, bez tvrdnje o potvrđenoj dostavi.
-• Help ažuriran zajedno s aplikacijom; provjera verzije i promjene pomoći ostaje obavezna.
+PROMJENE — 0.5.0-dev
+• Dinamički automatski i fokusirani zum s metarskim oznakama prstenova i glatkim prijelazom.
+• Ispravljeno prekrivanje vrlo bliskih članova središtem TI; jasno označen nedostupan smjer i članovi izvan skale.
+• Dodane kratke šifrirane Bluetooth poruke, provjera podrške, potvrde primitka, rok dostave i povijest samo u memoriji.
+• Dodano lokalno očitanje linearnog ubrzanja/akcelerometra i procjena kretanja bez računanja lažnog položaja.
+• Help ažuriran za svaki novi način rada.
+
+AR — PLANIRANA SLJEDEĆA FAZA (NIJE UGRAĐENO)
+Predviđen je prikaz kamere s imenima, udaljenostima i strelicama samo za osobe s valjanim svježim smjerom. Treba povezati koordinatni sustav kamere, orijentaciju telefona i UWB/GPS mjerenje, obraditi nesigurnost te označiti osobe izvan kadra. AR praćenje vlastitog telefona nije mjerenje položaja druge osobe. Sam akcelerometar ili AR ne mogu stvoriti nedostajući smjer.

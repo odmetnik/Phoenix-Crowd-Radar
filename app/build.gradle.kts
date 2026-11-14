@@ -7,8 +7,8 @@ android {
         minSdk = 31
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 4
-        versionName = "0.4.0-dev"
+        versionCode = 5
+        versionName = "0.5.0-dev"
     }
     signingConfigs {
         create("development") {
