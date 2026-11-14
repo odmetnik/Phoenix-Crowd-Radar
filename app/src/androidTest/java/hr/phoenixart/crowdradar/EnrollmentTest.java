@@ -8,6 +8,7 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.*;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.*;
+import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static org.junit.Assert.*;
 import android.widget.EditText;
 
@@ -26,7 +27,7 @@ public class EnrollmentTest {
                 a.groupKey=null;assertTrue(a.receiveInvite(token));assertEquals("QA događaj",a.groupName);
                 assertFalse(a.receiveInvite("phoenix2:broken"));a.invite();
             });
-            onView(withText("QR pozivnica")).check(matches(isDisplayed()));
+            onView(withText("QR pozivnica")).inRoot(isDialog()).check(matches(isDisplayed()));
             onView(withText("Zatvori")).perform(click());
         }
     }
@@ -49,9 +50,9 @@ public class EnrollmentTest {
     @Test public void startWithoutGroupHasSpecificOnboarding(){
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             scenario.onActivity(a->{a.stop();a.groupStore.clear();a.groupKey=null;a.toggleSearch();assertFalse(a.searching);});
-            onView(withText("Pokreni radar • odaberi grupu")).check(matches(isDisplayed()));
-            onView(withText("Skeniraj QR")).check(matches(isDisplayed()));
-            onView(withText("Pridruži se brojem")).check(matches(isDisplayed()));
+            onView(withText("Pokreni radar • odaberi grupu")).inRoot(isDialog()).check(matches(isDisplayed()));
+            onView(withText("Skeniraj QR")).inRoot(isDialog()).check(matches(isDisplayed()));
+            onView(withText("Pridruži se brojem")).inRoot(isDialog()).check(matches(isDisplayed()));
         }
     }
 }
