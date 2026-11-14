@@ -2,7 +2,7 @@
 
 Native Android cyber radar za pronalaženje kolega u gužvi. Phoenix Art / by Željko Kušter.
 
-**Izvorni razvojni projekt. Android build i fizički test još nisu izvršeni; ovo nije provjeren instalacijski APK.**
+**Razvojni Android projekt. Status izrade i provjera nalazi se u GitHub Actions; nakon uspješne izrade APK je u Artifacts. Fizički test na telefonima još nije izvršen.**
 
 ## Dodano u 0.2
 

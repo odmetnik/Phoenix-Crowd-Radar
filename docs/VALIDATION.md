@@ -1,3 +1,9 @@
+# GitHub provjera
+
+Aktualni Android build i lint izvršavaju se u GitHub Actions: https://github.com/odmetnik/Phoenix-Crowd-Radar/actions . Prolazak izrade nije potvrda fizičkog BLE/QR/UWB rada.
+
+## Povijest lokalne provjere prije GitHuba
+
 # Provjera 14. 11. 2026. — 0.2.0-dev
 
 - `bash tests/run.sh`: PASS, 24 core checks.

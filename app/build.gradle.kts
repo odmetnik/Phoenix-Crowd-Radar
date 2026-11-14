@@ -13,6 +13,7 @@ android {
 }
 dependencies {
     implementation("androidx.activity:activity:1.9.3")
+    implementation("androidx.fragment:fragment:1.8.5")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.android.gms:play-services-nearby:19.5.0")
 }
