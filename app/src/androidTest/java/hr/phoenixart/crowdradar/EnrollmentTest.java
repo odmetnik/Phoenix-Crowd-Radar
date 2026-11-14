@@ -15,11 +15,18 @@ import android.widget.EditText;
 /** Emulator smoke tests exercise the actual Keystore and native enrollment dialogs. */
 @RunWith(AndroidJUnit4.class)
 public class EnrollmentTest {
+    void awaitFocus(ActivityScenario<MainActivity> scenario){
+        java.util.concurrent.atomic.AtomicBoolean focused=new java.util.concurrent.atomic.AtomicBoolean();
+        long deadline=android.os.SystemClock.elapsedRealtime()+15000;
+        do{scenario.onActivity(a->focused.set(a.hasWindowFocus()));if(!focused.get())android.os.SystemClock.sleep(100);}while(!focused.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
+        assertTrue("Activity has foreground window focus before dialog input",focused.get());
+    }
     @Test public void createGroupQrAndImportRoundTrip() {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+            awaitFocus(scenario);
             scenario.onActivity(a->{a.groupStore.clear();a.groupKey=null;a.createGroup(false,null);});
-            onView(isAssignableFrom(EditText.class)).perform(replaceText("QA događaj"),closeSoftKeyboard());
-            onView(withText("Kreiraj")).perform(click());
+            onView(isAssignableFrom(EditText.class)).inRoot(isDialog()).perform(replaceText("QA događaj"),closeSoftKeyboard());
+            onView(withText("Kreiraj")).inRoot(isDialog()).perform(click());
             scenario.onActivity(a->{
                 assertNotNull(a.groupKey);assertEquals("QA događaj",a.groupName);
                 try{assertArrayEquals(a.groupKey,new GroupStore(a).load());}catch(Exception e){throw new AssertionError(e);}
@@ -28,7 +35,7 @@ public class EnrollmentTest {
                 assertFalse(a.receiveInvite("phoenix2:broken"));a.invite();
             });
             onView(withText("QR pozivnica")).inRoot(isDialog()).check(matches(isDisplayed()));
-            onView(withText("Zatvori")).perform(click());
+            onView(withText("Zatvori")).inRoot(isDialog()).perform(click());
         }
     }
     @Test public void captureDemoDashboard() throws Exception {
@@ -63,6 +70,7 @@ public class EnrollmentTest {
     }
     @Test public void startWithoutGroupHasSpecificOnboarding(){
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+            awaitFocus(scenario);
             scenario.onActivity(a->{a.stop();a.groupStore.clear();a.groupKey=null;a.toggleSearch();assertFalse(a.searching);});
             onView(withText("Pokreni radar • odaberi grupu")).inRoot(isDialog()).check(matches(isDisplayed()));
             onView(withText("Skeniraj QR")).inRoot(isDialog()).check(matches(isDisplayed()));
