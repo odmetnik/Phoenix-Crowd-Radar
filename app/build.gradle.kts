@@ -1,7 +1,7 @@
 plugins { id("com.android.application") }
 android {
     namespace = "hr.phoenixart.crowdradar"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "hr.phoenixart.crowdradar"
         minSdk = 31

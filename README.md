@@ -33,7 +33,7 @@ Aplikacija radi samo dok je otvorena. Zaključavanje/drugi app/Stop zaustavlja G
 
 ## Build
 
-JDK 17, Gradle 8.11.1, Android SDK 35. Gradle wrapper nije uključen.
+JDK 17, Gradle 8.11.1, Android SDK 36. Gradle wrapper nije uključen.
 
 ```bash
 bash tests/run.sh

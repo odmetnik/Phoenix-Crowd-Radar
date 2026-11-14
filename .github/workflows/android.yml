@@ -22,7 +22,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - run: bash tests/run.sh
       - run: python3 tests/check_help.py
       - run: gradle --no-daemon :app:assembleDebug :app:lintDebug
