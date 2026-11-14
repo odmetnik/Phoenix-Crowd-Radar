@@ -43,6 +43,7 @@ jobs:
             gradle --no-daemon :app:connectedDebugAndroidTest
             adb pull /sdcard/Android/data/hr.phoenixart.crowdradar/files/dashboard.png dashboard.png
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: Phoenix-Crowd-Radar-0.4.0-dev
           path: |

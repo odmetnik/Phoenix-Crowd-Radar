@@ -209,7 +209,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     void selectPeer(int id){
         if(demo){status.setText("DEMO • odabir je simuliran.");return;}
         Peer peer=peers.get(id);if(peer==null)return;selectedSession=id;profiles.focus=id;renderDashboard();
-        String details=peer.profile==null?"Profil još nije razmijenjen.":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps);
+        String details="BLE signal: "+Math.round(peer.rssi)+" dBm • "+RadarMath.band(peer.rssi)+"\n"+(peer.profile==null?"Profil još nije razmijenjen.":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps));
         new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\n"+details+"\n\nZa UWB odaberite jedno drugo na oba telefona. Držite telefone uspravno u portretu.")
             .setPositiveButton("Traži UWB",(d,w)->{startUwb(peer);renderDashboard();}).setNeutralButton("Pošalji ping",(d,w)->{sendPing();renderDashboard();}).setNegativeButton("Zatvori",null).show();
     }
