@@ -6,8 +6,9 @@ android {
         applicationId = "hr.phoenixart.crowdradar"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0-dev"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = 4
+        versionName = "0.4.0-dev"
     }
     signingConfigs {
         create("development") {
@@ -21,6 +22,10 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
 dependencies {
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    implementation("androidx.webkit:webkit:1.12.1")
     implementation("androidx.core.uwb:uwb-rxjava3:1.0.0")
     implementation("androidx.activity:activity:1.9.3")
     implementation("androidx.fragment:fragment:1.8.5")

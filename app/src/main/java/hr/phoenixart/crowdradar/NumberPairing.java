@@ -31,9 +31,12 @@ final class NumberPairing {
         active=true;host=isHost;installed=false;failures=0;ackId=-1;int ticket=generation;
         while(name.getBytes(StandardCharsets.UTF_8).length>100)name=name.substring(0,name.offsetByCodePoints(name.length(),-1));
         if(host){
+            dialog=new AlertDialog.Builder(activity).setTitle("Dodaj člana brojem")
+                .setMessage("Pokrećem povezivanje…\n\nKolega na svojem telefonu treba otvoriti GRUPA → Pridruži se brojem, zatim odabrati ovaj uređaj. Tada će se ovdje pojaviti kod koji treba upisati na drugom telefonu.")
+                .setNegativeButton("Odustani",(d,w)->stop()).setOnCancelListener(d->stop()).show();
             client.startAdvertising("PCR • "+name,SERVICE,lifecycle,new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_POINT_TO_POINT).build())
-                .addOnSuccessListener(v->{if(active&&generation==ticket)listener.status("Dodavanje člana otvoreno 90 s. Kolega neka odabere ovaj uređaj pa upiše prikazani kod.");})
-                .addOnFailureListener(e->{if(active&&generation==ticket){stop();listener.status("Brojčano uparivanje nije pokrenuto. Provjeri Google Play usluge i dozvole.");}});
+                .addOnSuccessListener(v->{if(active&&generation==ticket){listener.status("Dodavanje člana otvoreno 90 s. Čekam kolegin telefon.");if(dialog!=null)dialog.setTitle("Čekam kolegin telefon • 90 s");}})
+                .addOnFailureListener(e->{if(active&&generation==ticket){stop();listener.status("Brojčano uparivanje nije pokrenuto. Provjeri Google Play usluge i dozvole. "+failure(e));}});
         }else{
             list=new ArrayAdapter<>(activity,android.R.layout.simple_list_item_1,new ArrayList<>());
             dialog=new AlertDialog.Builder(activity).setTitle("Odaberi kolegin uređaj")
@@ -46,10 +49,11 @@ final class NumberPairing {
                     found.put(id,info.getEndpointName());refreshList();}
                 @Override public void onEndpointLost(String id){if(active&&generation==ticket){found.remove(id);refreshList();}}
             },new DiscoveryOptions.Builder().setStrategy(Strategy.P2P_POINT_TO_POINT).build())
-                .addOnFailureListener(e->{if(active&&generation==ticket){stop();listener.status("Traženje za uparivanje nije uspjelo. Provjeri Google Play usluge i dozvole.");}});
+                .addOnFailureListener(e->{if(active&&generation==ticket){stop();listener.status("Traženje za uparivanje nije uspjelo. Provjeri Google Play usluge i dozvole. "+failure(e));}});
         }
         main.postDelayed(()->{if(active&&generation==ticket){stop();listener.status("Vrijeme za dodavanje člana je isteklo.");}},90000);
     }
+    String failure(Exception e){return e instanceof com.google.android.gms.common.api.ApiException?"Kod: "+((com.google.android.gms.common.api.ApiException)e).getStatusCode():e.getClass().getSimpleName();}
     void refreshList(){if(list!=null){list.clear();list.addAll(found.values());list.notifyDataSetChanged();}}
     final ConnectionLifecycleCallback lifecycle=new ConnectionLifecycleCallback(){
         @Override public void onConnectionInitiated(String id,ConnectionInfo info){
@@ -63,7 +67,7 @@ final class NumberPairing {
                     .setMessage("Kolega neka na svojem telefonu upiše ovaj broj:\n\n"+digits+"\n\nOdobri samo ako je to osoba koju dodaješ.")
                     .setPositiveButton("Odobri",(d,w)->accept(id)).setNegativeButton("Odbij",(d,w)->{client.rejectConnection(id);stop();})
                     .setOnCancelListener(d->{client.rejectConnection(id);stop();}).create();
-                dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);dialog.show();
+                dialog.show();if(dialog.getWindow()!=null)dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
             }else{
                 EditText input=new EditText(activity);input.setInputType(InputType.TYPE_CLASS_NUMBER);input.setHint("Broj s kolegina telefona");
                 input.setImportantForAutofill(android.view.View.IMPORTANT_FOR_AUTOFILL_NO);

@@ -41,6 +41,8 @@ final class BlePresence {
         BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
         try {
             if (adapter == null || !adapter.isEnabled()) { listener.status("Uključi Bluetooth u postavkama telefona."); return; }
+            android.location.LocationManager location=context.getSystemService(android.location.LocationManager.class);
+            if(location!=null&&!location.isLocationEnabled()){listener.status("Uključi Lokaciju u brzim postavkama telefona za BLE skeniranje. GPS dijeljenje ostaje isključeno.");return;}
             advertiser = adapter.getBluetoothLeAdvertiser(); scanner = adapter.getBluetoothLeScanner();
             if (advertiser == null || scanner == null) { listener.status("Telefon ne podržava potrebno BLE oglašavanje."); return; }
             secret = key.clone(); service = new ParcelUuid(Presence.service(key)); sessionId = new SecureRandom().nextInt(); running = true;

@@ -1,11 +1,13 @@
-# Phoenix Crowd Radar — 0.3.0-dev
+# Phoenix Crowd Radar — 0.4.0-dev
 
 Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GPS razmjena i UWB sesija za odabrani par. Phoenix Art / by Željko Kušter.
 
 **Aktualna kompilacija i Android lint: GitHub Actions. Fizička UWB/BLE/GPS kompatibilnost i preciznost još nisu potvrđeni na telefonima.** APK je razvojni i zahtijeva Android 12+.
 
-## Što radi 0.3
+## Što radi 0.4
 
+- Offline HTML/Canvas cyber sučelje prema referenci, animirani radar i odvojene kartice RADAR / GRUPA / PING.
+- Jasno kreiranje/pridruživanje pri prvom pokretanju; QR i brojčana pozivnica nude kreiranje grupe ako nedostaje.
 - Kreiranje grupe, promjenjiv naziv, korisnička imena i kartice mogućnosti telefona.
 - QR pozivnica ili brojčana potvrda preko Google Nearby Connections. Kratki kod nije grupni ključ.
 - BLE oglasi iste grupe daju RSSI razred, bez izmišljanja metara ili smjera.
@@ -20,12 +22,12 @@ Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GP
 ## Korištenje
 
 1. Upiši svoje ime, kreiraj grupu i dodaj kolege QR-om ili brojčanom potvrdom.
-2. Na oba telefona uključi Bluetooth, odobri dozvole i pokreni radar.
+2. Na oba telefona uključi Bluetooth i sistemsku Lokaciju, odobri dozvole i pokreni radar.
 3. Za GPS na oba telefona zasebno uključi GPS dijeljenje i pričekaj dobar satelitski signal.
 4. Za UWB na oba kompatibilna telefona uključi UWB u sustavu, dodirni kolegu i odaberi **Traži UWB**. Drži telefon uspravno u portretu. Oba odabira napravi unutar približno 25 s.
 5. Pomoć objašnjava točke, krugove bez smjera, izvore, pogreške i domet.
 
-Aplikacija radi samo dok je otvorena. Zaključavanje/drugi app/Stop zaustavlja GPS, Bluetooth i UWB. GPS sam ne proširuje radijski domet. Nema mesha, servera za udaljeno praćenje ni PING-a. Wi-Fi Aware/RTT su samo detekcija podrške; Wi-Fi RTT mjerenje još nije implementirano. Nearby numeričko uparivanje koristi Bluetooth/Wi-Fi i Google Play usluge; ne treba internetski router. Google SDK ima vlastitu analitiku.
+Aplikacija radi samo dok je otvorena. Zaključavanje/drugi app/Stop zaustavlja GPS, Bluetooth i UWB. GPS sam ne proširuje radijski domet. Nema mesha ni servera za udaljeno praćenje. Zvučni PING odabranom članu šalje se lokalnom vezom; nema potvrde dostave. Wi-Fi Aware/RTT su samo detekcija podrške; Wi-Fi RTT mjerenje još nije implementirano. Nearby numeričko uparivanje koristi Bluetooth/Wi-Fi i Google Play usluge; ne treba internetski router. Google SDK ima vlastitu analitiku.
 
 ## Help pri svakoj nadogradnji
 
@@ -37,6 +39,7 @@ JDK 17, Gradle 8.11.1, Android SDK 36. Gradle wrapper nije uključen.
 
 ```bash
 bash tests/run.sh
+node tests/ui.mjs
 python3 tests/check_help.py
 gradle :app:assembleDebug :app:lintDebug
 ```
@@ -47,6 +50,6 @@ Od 0.3 koristimo stalan javni razvojni potpisni ključ (`signing/README.md`), na
 
 ## Provjere i privatnost
 
-40 provjera čiste Java jezgre obuhvaća geometriju, pogreške, starost, neslaganje izvora, položaj antene, grupne pakete i šifriranje. Parser izvora nije zamjena za Android build. Fizička radio-kompatibilnost mora se provjeriti odvojeno.
+40 provjera čiste Java jezgre obuhvaća geometriju, pogreške, starost, neslaganje izvora, položaj antene, grupne pakete i šifriranje. Parser izvora nije zamjena za Android build. CI uključuje Android emulator smoke test spremanja grupnog ključa, QR dijaloga, uvoza pozivnice i početnog postupka. Fizička radio-kompatibilnost mora se provjeriti odvojeno. Vizualna provjera trenutačno je blokirana mrežnom greškom cloud pregleda; vidi design-qa.md.
 
 Grupni ključ spremljen je pomoću Android Keystorea; sadržaj GATT-a šifriran AES-GCM-om. Koordinate i UWB ključevi sesije ne spremaju se u datoteke ili logove. Svaki član koji posjeduje grupni ključ ima pristup grupnim podacima. Prisutnost hardvera i imena/modeli iz profila nisu sigurnosna atestacija. Detalji su u Help-u i docs/UWB_GPS.md.

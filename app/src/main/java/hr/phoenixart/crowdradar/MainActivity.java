@@ -58,16 +58,17 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     TextView status, groupLabel, memberLabel, hardware;
     LinearLayout memberList;
     Button searchButton, demoButton;
-    Radar radar;
+    Dashboard dashboard;
+    long pingId,pingAt; int pingTarget;
     String selected;
     static final String[] REQUIRED = { Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_ADVERTISE,
         Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION };
     final ActivityResultLauncher<ScanOptions> qrScanner=registerForActivityResult(new ScanContract(),result->{
-        if(result.getContents()!=null&&!receiveInvite(result.getContents()))status.setText("Neispravna QR pozivnica.");
+        if(result.getContents()!=null){if(receiveInvite(result.getContents()))toggleSearch();else status.setText("Neispravna QR pozivnica.");}renderDashboard();
     });
     static class Peer {
         int id; double rssi, baseline; long seen; String alias; DeviceProfile profile;
-        boolean hasGeo; double lat,lon,error; long fixAge,geoAt,stateAt;
+        boolean hasGeo; double lat,lon,error; long fixAge,geoAt,stateAt,lastPing;
         Peer(int id, int signal) { this.id=id; rssi=baseline=signal; alias=String.format(Locale.ROOT,"Član %04X", id & 65535); }
     }
     @Override public void onCreate(Bundle saved) {
@@ -83,7 +84,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             Peer peer=peers.get(id);if(peer==null)return;peer.profile=profile;peer.alias=profile.name;
             if(revision>groupRevision&&!name.trim().isEmpty()&&name.length()<=40){groupName=name;groupRevision=revision;saveGroupInfo();updateGroup();}
         });
-        profiles.stateSupplier=()->{JSONObject state=new JSONObject();try{JSONObject g=gps.wire();if(g!=null)state.put("g",g);JSONObject u=uwb.wire();if(u.length()>0)state.put("u",u);}catch(Exception ignored){}return state;};
+        profiles.stateSupplier=()->{JSONObject state=new JSONObject();try{JSONObject g=gps.wire();if(g!=null)state.put("g",g);JSONObject u=uwb.wire();if(u.length()>0)state.put("u",u);if(pingId!=0&&SystemClock.elapsedRealtime()-pingAt<10000)state.put("p",new JSONObject().put("id",pingId).put("target",pingTarget));}catch(Exception ignored){}return state;};
         profiles.stateListener=(id,data,latency)->{
             Peer peer=peers.get(id);if(peer==null)return;peer.stateAt=SystemClock.elapsedRealtime();peer.hasGeo=false;
             JSONObject g=data.optJSONObject("g");
@@ -91,6 +92,10 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
                 if(Navigation.validFix(lat,lon,error,age)){peer.lat=lat;peer.lon=lon;peer.error=error;peer.fixAge=age;peer.geoAt=SystemClock.elapsedRealtime();peer.hasGeo=true;}
             }catch(Exception ignored){}
             uwb.remote(id,data.optJSONObject("u"));
+            JSONObject ping=data.optJSONObject("p");
+            if(ping!=null&&ping.optInt("target") == ble.sessionId()&&ping.optLong("id")!=0&&ping.optLong("id")!=peer.lastPing){
+                peer.lastPing=ping.optLong("id");signalPing(peer.alias);
+            }
         };
         pairing=new NumberPairing(this,new NumberPairing.Listener(){
             public String invitation(){return invitationToken();}
@@ -123,35 +128,100 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         b.setOnClickListener(v -> action.run()); b.setMinHeight(dp(52)); return b;
     }
     void build() {
-        ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(BG);
-        LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(20),dp(20),dp(20),dp(24));
-        scroll.addView(root); setContentView(scroll);
-        scroll.setOnApplyWindowInsetsListener((v,insets) -> {
-            android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
-            v.setPadding(bars.left,bars.top,bars.right,bars.bottom); return insets;
-        });
-        root.addView(label("PHOENIX / FIELD TOOLS",11,CYAN));
-        root.addView(label("CROWD RADAR",28,Color.WHITE));
-        groupLabel = label("",12,MUTED); root.addView(groupLabel); groupLabel.setOnClickListener(v->editGroupName()); updateGroup();
-        status = label("Kreiraj grupu ili zalijepi pozivnicu.",13,AMBER); root.addView(status);
-        radar = new Radar(); int diameter = Math.min(getResources().getDisplayMetrics().widthPixels-dp(40),dp(480));
-        root.addView(radar,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,diameter));
-        rangeMode=label("BLE BLIZINA • BEZ IZMIŠLJENOG SMJERA",11,CYAN);root.addView(rangeMode);
-        memberLabel = label("ČLANOVI GRUPE • 0",14,Color.WHITE); root.addView(memberLabel);
-        memberList = new LinearLayout(this); memberList.setOrientation(LinearLayout.VERTICAL); root.addView(memberList);
-        LinearLayout actions = new LinearLayout(this); actions.setOrientation(LinearLayout.HORIZONTAL);
-        searchButton = button("POKRENI RADAR",this::toggleSearch);
-        actions.addView(searchButton,new LinearLayout.LayoutParams(0,dp(56),1));
-        actions.addView(button("GRUPA",this::groupMenu),new LinearLayout.LayoutParams(0,dp(56),1)); root.addView(actions);
-        demoButton = button("DEMO IZGLEDA",this::toggleDemo); root.addView(demoButton);
-        gpsButton=button("UKLJUČI GPS DIJELJENJE",this::toggleGps);root.addView(gpsButton);
-        root.addView(button("ZAUSTAVI UWB TRAŽENJE",()->{uwb.stop();status.setText("UWB zaustavljen. GPS/BLE prikaz ostaje dostupan.");}));
-        root.addView(button("MOJ PROFIL I MOGUĆNOSTI",this::profileMenu));
-        root.addView(button("POMOĆ / KAKO RADI",this::showHelp));
-        hardware = label("",11,MUTED); root.addView(hardware);
-        refreshHardware();
-        root.addView(label("PHOENIX ART  /  by Željko Kušter\nv"+appVersion()+" • razvojna verzija • samo uz otvorenu aplikaciju",10,MUTED));
-        refreshMembers();
+        status=label("Kreiraj grupu ili se pridruži kolegama.",13,AMBER);
+        groupLabel=label("",12,MUTED);memberLabel=label("",14,Color.WHITE);hardware=label("",11,MUTED);rangeMode=label("",11,CYAN);
+        searchButton=button("POKRENI RADAR",this::toggleSearch);demoButton=button("DEMO IZGLEDA",this::toggleDemo);gpsButton=button("UKLJUČI GPS DIJELJENJE",this::toggleGps);
+        dashboard=new Dashboard(this,this::dashboardAction);setContentView(dashboard.view);
+        dashboard.view.setOnApplyWindowInsetsListener((v,insets)->{android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);return insets;});
+        updateGroup();refreshHardware();
+    }
+    void dashboardAction(String action,String value){
+        switch(action){
+            case "ready":break;
+            case "radar":toggleSearch();break;
+            case "demo":toggleDemo();break;
+            case "create":createGroup(false,null);break;
+            case "rename":if(groupKey==null)createGroup(false,null);else editGroupName();break;
+            case "invite":if(groupKey==null)createGroup(false,this::invite);else invite();break;
+            case "scan":scanInvite();break;
+            case "host":startPair(true);break;
+            case "join":startPair(false);break;
+            case "paste":importGroup();break;
+            case "leave":leaveGroup();break;
+            case "profile":profileMenu();break;
+            case "help":showHelp();break;
+            case "gps":toggleGps();break;
+            case "uwbStop":uwb.stop();status.setText("UWB zaustavljen.");break;
+            case "select":try{selectPeer(Integer.parseInt(value));}catch(NumberFormatException ignored){}break;
+            case "find":if(!searching){toggleSearch();}else choosePeer();break;
+            case "ping":sendPing();break;
+            default:break;
+        }
+    }
+    void renderDashboard(){
+        if(dashboard==null)return;
+        try{
+            JSONObject data=new JSONObject().put("group",groupName).put("hasGroup",groupKey!=null).put("own",own.name)
+                .put("demo",demo).put("running",searching).put("status",status.getText()).put("version",appVersion())
+                .put("heading",heading==null?JSONObject.NULL:heading).put("gps",gps.sharing).put("hardware",hardware.getText())
+                .put("selected",selectedSession==null?JSONObject.NULL:selectedSession);
+            org.json.JSONArray members=new org.json.JSONArray();
+            if(demo){members.put(new JSONObject().put("id",1).put("name","Marko").put("source","UWB").put("meters",12).put("angle",50));
+                members.put(new JSONObject().put("id",2).put("name","Ana").put("source","GPS").put("meters",38).put("angle",224));
+                members.put(new JSONObject().put("id",3).put("name","Ivan").put("source","BLE").put("meters",JSONObject.NULL).put("angle",JSONObject.NULL));}
+            else for(Peer peer:peers.values()){
+                Estimate e=estimate(peer);boolean stale=SystemClock.elapsedRealtime()-peer.seen>12000;
+                members.put(new JSONObject().put("id",peer.id).put("name",peer.alias).put("source",e.distanceSource.replace(" ~",""))
+                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale));
+            }
+            Peer target=selectedSession==null?null:peers.get(selectedSession);data.put("selectedName",target==null?"":target.alias);
+            data.put("members",members);dashboard.render(data);
+        }catch(org.json.JSONException ignored){}
+    }
+    void createGroup(boolean startAfter,Runnable after){
+        EditText input=new EditText(this);input.setText(groupName);input.setSelectAllOnFocus(true);input.setSingleLine();input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(groupKey==null?"Kreiraj grupu":"Zamijeni postojeću grupu")
+            .setMessage(groupKey==null?"Upiši naziv događaja ili grupe.":"Nova grupa zamjenjuje grupu na ovom telefonu. Kolege će trebati novu pozivnicu.")
+            .setView(input).setPositiveButton("Kreiraj",null).setNegativeButton("Odustani",null).create();
+        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            String name=input.getText().toString().trim();if(name.isEmpty()){input.setError("Upiši naziv grupe");return;}
+            byte[] key=new byte[32];new SecureRandom().nextBytes(key);
+            if(installGroup(key,name,System.currentTimeMillis())){dialog.dismiss();if(startAfter)toggleSearch();if(after!=null)after.run();}
+            else input.setError("Spremanje grupe nije uspjelo. Provjeri poruku aplikacije.");renderDashboard();
+        }));dialog.show();
+    }
+    void firstRun(){
+        new AlertDialog.Builder(this).setTitle("Pokreni radar • odaberi grupu")
+            .setMessage("Za pronalaženje kolega oba telefona moraju biti u istoj grupi.")
+            .setPositiveButton("Kreiraj grupu",(d,w)->createGroup(true,null))
+            .setNeutralButton("Skeniraj QR",(d,w)->scanInvite())
+            .setNegativeButton("Pridruži se brojem",(d,w)->startPair(false)).show();
+    }
+    void scanInvite(){stop();pairing.stop();demo=false;qrScanner.launch(new ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Skeniraj Phoenix Crowd Radar pozivnicu").setBeepEnabled(false).setOrientationLocked(false));}
+    void leaveGroup(){new AlertDialog.Builder(this).setMessage("Napustiti grupu i zaustaviti radar?").setPositiveButton("Napusti",(d,w)->{
+        stop();pairing.stop();demo=false;groupStore.clear();if(groupKey!=null)Arrays.fill(groupKey,(byte)0);groupKey=null;peers.clear();selectedSession=null;updateGroup();status.setText("Napustio si grupu.");refreshMembers();
+    }).setNegativeButton("Odustani",null).show();}
+    void choosePeer(){
+        if(peers.isEmpty()){status.setText("Radar radi. Čekam kolege iz iste grupe.");return;}
+        Peer[] list=peers.values().toArray(new Peer[0]);String[] names=new String[list.length];for(int i=0;i<list.length;i++)names[i]=list[i].alias;
+        new AlertDialog.Builder(this).setTitle("Traži osobu").setItems(names,(d,i)->selectPeer(list[i].id)).setNegativeButton("Zatvori",null).show();
+    }
+    void selectPeer(int id){
+        if(demo){status.setText("DEMO • odabir je simuliran.");return;}
+        Peer peer=peers.get(id);if(peer==null)return;selectedSession=id;profiles.focus=id;renderDashboard();
+        String details=peer.profile==null?"Profil još nije razmijenjen.":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps);
+        new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\n"+details+"\n\nZa UWB odaberite jedno drugo na oba telefona. Držite telefone uspravno u portretu.")
+            .setPositiveButton("Traži UWB",(d,w)->{startUwb(peer);renderDashboard();}).setNeutralButton("Pošalji ping",(d,w)->{sendPing();renderDashboard();}).setNegativeButton("Zatvori",null).show();
+    }
+    void sendPing(){
+        Peer peer=selectedSession==null?null:peers.get(selectedSession);
+        if(demo||!searching||peer==null||peer.profile==null||SystemClock.elapsedRealtime()-peer.seen>12000){status.setText("Pokreni radar i odaberi aktivnog člana s razmijenjenim profilom.");return;}
+        pingTarget=peer.id;pingId=new SecureRandom().nextInt(Integer.MAX_VALUE)+1L;pingAt=SystemClock.elapsedRealtime();status.setText("Ping pripremljen za "+peer.alias+". Dostava ovisi o aktivnoj vezi; nema potvrde primitka.");
+    }
+    void signalPing(String name){
+        status.setText("PING od: "+name);
+        android.media.ToneGenerator tone=new android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION,80);
+        tone.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2,500);handler.postDelayed(tone::release,650);
     }
     String appVersion(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(PackageManager.NameNotFoundException e){return "dev";}}
     void updateGroup() { groupLabel.setText(groupKey == null ? "NEMA GRUPE • OFFLINE" : groupName+"  ✎  •  "+own.name); }
@@ -205,7 +275,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     }
     void toggleSearch() {
         if (searching) { stop(); status.setText("Radar zaustavljen."); return; }
-        if (groupKey == null) { groupMenu(); return; }
+        if (groupKey == null) { firstRun(); return; }
         boolean askUwb=getPackageManager().hasSystemFeature("android.hardware.uwb")&&!uwb.permitted()&&!getSharedPreferences("identity",0).getBoolean("uwbAsked",false);
         if (!allowed()||askUwb) {
             ArrayList<String> permissions=new ArrayList<>(Arrays.asList(REQUIRED));
@@ -224,26 +294,12 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     void toggleDemo() {
         stop(); demo=!demo; peers.clear(); selected=null;selectedSession=null;
         status.setText(demo?"DEMO • simulirane osobe i smjerovi; senzori ne lociraju te osobe.":"Demo isključen. Pokreni BLE radar.");
-        demoButton.setText(demo?"ISKLJUČI DEMO":"DEMO IZGLEDA"); refreshMembers(); radar.invalidate();
+        demoButton.setText(demo?"ISKLJUČI DEMO":"DEMO IZGLEDA"); refreshMembers(); renderDashboard();
     }
-    void groupMenu() {
-        new AlertDialog.Builder(this).setTitle("Grupa / dodaj člana")
-            .setItems(new String[]{"Promijeni naziv grupe", "Kreiraj novu grupu", "Prikaži QR pozivnicu", "Skeniraj QR kod", "Dodaj člana brojem", "Pridruži se upisom broja", "Zalijepi tekst pozivnice", "Napusti grupu"},(d,which)->{
-                if(which==0)editGroupName();
-                else if(which==1)new AlertDialog.Builder(this).setMessage("Zamijeniti grupu na ovom telefonu?").setPositiveButton("Kreiraj",(x,y)->{byte[] key=new byte[32];new SecureRandom().nextBytes(key);installGroup(key,groupName,System.currentTimeMillis());}).setNegativeButton("Odustani",null).show();
-                else if(which==2)invite();
-                else if(which==3){stop();pairing.stop();qrScanner.launch(new ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Skeniraj Phoenix Crowd Radar pozivnicu").setBeepEnabled(false).setOrientationLocked(false));}
-                else if(which==4)startPair(true);
-                else if(which==5)startPair(false);
-                else if(which==6)importGroup();
-                else new AlertDialog.Builder(this).setMessage("Ukloniti grupni ključ i zaustaviti radar?").setPositiveButton("Napusti",(x,y)->{
-                    stop();pairing.stop();demo=false;groupStore.clear();if(groupKey!=null)Arrays.fill(groupKey,(byte)0);groupKey=null;peers.clear();updateGroup();status.setText("Napustio si grupu.");refreshMembers();
-                }).setNegativeButton("Odustani",null).show();
-            }).setNegativeButton("Zatvori",null).show();
-    }
+    void groupMenu(){new AlertDialog.Builder(this).setTitle("Grupa").setItems(new String[]{"Kreiraj grupu","QR pozivnica","Skeniraj QR","Dodaj člana brojem","Pridruži se brojem"},(d,i)->dashboardAction(new String[]{"create","invite","scan","host","join"}[i],"")).show();}
     boolean pairPermissions(){if(!allowed())return false;return Build.VERSION.SDK_INT<33||checkSelfPermission(Manifest.permission.NEARBY_WIFI_DEVICES)==PackageManager.PERMISSION_GRANTED;}
     void startPair(boolean host){
-        if(host&&groupKey==null){status.setText("Prvo kreiraj grupu.");return;}
+        if(host&&groupKey==null){createGroup(false,()->startPair(true));return;}
         if(!pairPermissions()){
             pendingPairAction=host?1:2;ArrayList<String> permissions=new ArrayList<>(Arrays.asList(REQUIRED));
             if(Build.VERSION.SDK_INT>=33)permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES);requestPermissions(permissions.toArray(new String[0]),102);return;
@@ -252,7 +308,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     }
     boolean installGroup(byte[] key,String name,long revision) {
         try {groupStore.save(key);stop();if(groupKey!=null)Arrays.fill(groupKey,(byte)0);groupKey=key;groupName=name;groupRevision=revision;saveGroupInfo();demo=false;peers.clear();updateGroup();status.setText("Grupa spremljena. Pokreni radar.");refreshMembers();return true;}
-        catch(Exception e){status.setText("Ključ nije spremljen. Grupa nije promijenjena.");return false;}
+        catch(Exception e){status.setText("Ključ nije spremljen ("+e.getClass().getSimpleName()+"). Grupa nije promijenjena.");return false;}
     }
     String invitationToken(){
         if(groupKey==null)return null;
@@ -276,14 +332,14 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{if(receiveInvite(input.getText().toString()))dialog.dismiss();else input.setError("Neispravna pozivnica");}));dialog.show();
     }
     void invite(){
-        String token=invitationToken();if(token==null){status.setText("Prvo kreiraj grupu.");return;}
+        String token=invitationToken();if(token==null){createGroup(false,this::invite);return;}
         try {int size=640;BitMatrix matrix=new MultiFormatWriter().encode(token,BarcodeFormat.QR_CODE,size,size);int[] pixels=new int[size*size];
             for(int y=0;y<size;y++)for(int x=0;x<size;x++)pixels[y*size+x]=matrix.get(x,y)?Color.BLACK:Color.WHITE;
             Bitmap bitmap=Bitmap.createBitmap(pixels,size,size,Bitmap.Config.ARGB_8888);ImageView image=new ImageView(this);image.setImageBitmap(bitmap);
             LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(16),dp(16),dp(16),dp(16));
             body.addView(label(groupName+"\nPozivnica daje pristup grupi. Pokaži je samo kolegama.",14,Color.WHITE));body.addView(image,new LinearLayout.LayoutParams(-1,dp(260)));
             TextView text=label(token,10,MUTED);text.setTextIsSelectable(true);body.addView(text);ScrollView scroll=new ScrollView(this);scroll.addView(body);
-            AlertDialog dialog=new AlertDialog.Builder(this).setTitle("QR pozivnica").setView(scroll).setPositiveButton("Zatvori",null).create();dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);dialog.show();
+            AlertDialog dialog=new AlertDialog.Builder(this).setTitle("QR pozivnica").setView(scroll).setPositiveButton("Zatvori",null).create();dialog.show();if(dialog.getWindow()!=null)dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }catch(Exception e){status.setText("QR kod nije izrađen.");}
     }
     static final class Estimate {
@@ -312,37 +368,16 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     String measurementText(Peer peer){Estimate e=estimate(peer);String distance=Double.isFinite(e.meters)?String.format(Locale.ROOT,"%s %.1f m",e.distanceSource,e.meters):"BLE blizina • bez metara";
         return distance+" • "+e.directionSource+(e.note.isEmpty()?"":"\n"+e.note);}
     void refreshMembers(){
-        memberList.removeAllViews();long now=SystemClock.elapsedRealtime();peers.values().removeIf(p->now-p.seen>120000);
-        if(demo){memberLabel.setText("DEMO GRUPA • 3 SIMULIRANE OSOBE");demoRow("01  Marko","UWB • 12 m • simulirano",CYAN);demoRow("02  Ana","GPS • 38 m • simulirano",GREEN);demoRow("03  Ivan","BLE • smjer nepoznat",AMBER);return;}
-        memberLabel.setText("ČLANOVI GRUPE • "+peers.size());int number=0;
-        for(Peer peer:peers.values()){
-            long age=(now-peer.seen)/1000;String details=peer.profile==null?"Profil: čekam razmjenu / provjeri istu verziju aplikacije":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps);
-            TextView row=label(String.format(Locale.ROOT,"%02d  ",++number)+peer.alias+"   "+Math.round(peer.rssi)+" dBm\n"+(age>12?"ZADNJE VIĐEN • prije "+age+" s":RadarMath.band(peer.rssi))+"\n"+measurementText(peer)+"\n"+details,13,age>12?MUTED:CYAN);
-            row.setPadding(dp(12),dp(10),dp(12),dp(10));row.setBackgroundColor(PANEL);
-            row.setOnClickListener(v->{selectedSession=peer.id;profiles.focus=peer.id;
-                new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\nZa UWB na oba telefona odaberite jedno drugo i pritisnite Traži UWB. Držite telefone uspravno u portretu.")
-                    .setPositiveButton("Traži UWB",(d,w)->startUwb(peer)).setNeutralButton("Samo odaberi",(d,w)->radar.invalidate()).setNegativeButton("Zatvori",null).show();});
-            memberList.addView(row);
-        }
-        if(peers.isEmpty())memberList.addView(label("Nema članova. Na oba telefona odobri dozvole, otvori istu grupu i pokreni radar.",13,MUTED));
-        boolean hasMeters=false;for(Peer peer:peers.values())if(Double.isFinite(estimate(peer).meters))hasMeters=true;
-        rangeMode.setText(hasMeters?"METRI IZ MJERENJA • TOČKA SAMO UZ VALJAN SMJER":"JAČINA BLE SIGNALA • BEZ METARA I SMJERA");
-        refreshHardware();
-        if(searching){
-            if(selectedSession!=null&&uwb.targetSession==selectedSession)status.setText(uwb.status);
-            else if(gps.sharing)status.setText(gps.state);
-        }
+        long now=SystemClock.elapsedRealtime();peers.values().removeIf(p->now-p.seen>120000);
+        refreshHardware();if(searching){if(selectedSession!=null&&uwb.targetSession==selectedSession)status.setText(uwb.status);else if(gps.sharing)status.setText(gps.state);}renderDashboard();
     }
-    void demoRow(String name,String info,int color) {
-        TextView v=label(name+"\n"+info,13,color);v.setPadding(dp(12),dp(8),dp(12),dp(8));v.setBackgroundColor(PANEL);
-        v.setOnClickListener(x->{selected=name;status.setText("DEMO odabir: "+name+" • podaci su simulirani");radar.invalidate();});memberList.addView(v);
-    }
-    final Runnable tick=new Runnable(){public void run(){if(!visible)return;refreshMembers();radar.invalidate();handler.postDelayed(this,1000);}};
-    @Override protected void onResume(){super.onResume();visible=true;
+    final Runnable tick=new Runnable(){public void run(){if(!visible)return;refreshMembers();handler.postDelayed(this,1000);}};
+    @Override protected void onResume(){super.onResume();visible=true;if(dashboard!=null)dashboard.view.onResume();
         Sensor sensor=sensors==null?null:sensors.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         if(sensor!=null)sensors.registerListener(this,sensor,SensorManager.SENSOR_DELAY_UI);handler.post(tick);}
-    @Override protected void onPause(){visible=false;handler.removeCallbacks(tick);stop();pairing.stop();if(sensors!=null)sensors.unregisterListener(this);super.onPause();}
-    @Override protected void onDestroy(){stop();pairing.stop();handler.removeCallbacksAndMessages(null);super.onDestroy();}
+    @Override protected void onPause(){visible=false;handler.removeCallbacks(tick);if(dashboard!=null)dashboard.view.onPause();if(sensors!=null)sensors.unregisterListener(this);super.onPause();}
+    @Override protected void onStop(){stop();pairing.stop();renderDashboard();super.onStop();}
+    @Override protected void onDestroy(){stop();pairing.stop();handler.removeCallbacksAndMessages(null);if(dashboard!=null)dashboard.destroy();super.onDestroy();}
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy){if(accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE){heading=null;headingAt=0;}}
     @Override public void onSensorChanged(SensorEvent event){
         if(event.accuracy==SensorManager.SENSOR_STATUS_UNRELIABLE){heading=null;return;}
@@ -358,41 +393,5 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         double east,north;
         if(backHorizontal>.7){east=-remapped[2];north=-remapped[5];}else{east=remapped[1];north=remapped[4];}
         if(Math.hypot(east,north)<.25){heading=null;headingAt=0;}else{heading=(float)RadarMath.normalize(Math.toDegrees(Math.atan2(east,north)));headingAt=SystemClock.elapsedRealtime();}
-        radar.invalidate();
-    }
-    final class Radar extends View {
-        final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-        Radar(){super(MainActivity.this);setContentDescription("Radar blizine. Smjer članova u BLE načinu nije poznat. Imena i signali su dostupni na popisu ispod radara.");}
-        void line(Canvas c,float x,float y,float x2,float y2,int color,float width){p.setColor(color);p.setStrokeWidth(width);c.drawLine(x,y,x2,y2,p);}
-        void text(Canvas c,String t,float x,float y,float size,int color){p.setStyle(Paint.Style.FILL);p.setColor(color);p.setTypeface(Typeface.MONOSPACE);p.setTextSize(dp(size));p.setTextAlign(Paint.Align.CENTER);c.drawText(t,x,y,p);}
-        @Override protected void onDraw(Canvas c){
-            float x=getWidth()/2f,y=getHeight()/2f,r=Math.min(x,y)-dp(30);if(r<=0)return;
-            p.setStyle(Paint.Style.FILL);p.setColor(PANEL);c.drawCircle(x,y,r,p);
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(1));
-            for(int i=1;i<=4;i++){p.setColor(i==4?Color.rgb(35,92,115):Color.rgb(22,53,69));c.drawCircle(x,y,r*i/4,p);}
-            line(c,x-r,y,x+r,y,Color.rgb(22,53,69),dp(1));line(c,x,y-r,x,y+r,Color.rgb(22,53,69),dp(1));
-            for(int i=0;i<72;i++){double a=Math.toRadians(i*5);float a1=r+(i%6==0?dp(5):dp(2));line(c,x+(float)Math.sin(a)*r,y-(float)Math.cos(a)*r,x+(float)Math.sin(a)*a1,y-(float)Math.cos(a)*a1,Color.rgb(42,90,108),dp(1));}
-            if(demo){dot(c,x,y,r*.3f,40,"01",CYAN);dot(c,x,y,r*.78f,220,"02",GREEN);
-                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(4));p.setColor(AMBER);c.drawCircle(x,y,r*.6f,p);
-                text(c,"03 • BEZ SMJERA",x,y+r*.64f,9,AMBER);
-                text(c,"DEMO",x,y-r-dp(15),12,AMBER);
-            }else if(searching||!peers.isEmpty()){
-                double maximum=0;boolean metric=false;for(Peer peer:peers.values()){Estimate e=estimate(peer);if(Double.isFinite(e.meters)){maximum=Math.max(maximum,e.meters);metric=true;}}
-                double scale=Math.max(10,Math.ceil(maximum/10)*10);int index=0;
-                for(Peer peer:peers.values()){index++;Estimate e=estimate(peer);
-                    if(Double.isFinite(e.meters)){float radius=(float)(r*Math.min(1,e.meters/scale));int color=e.distanceSource.equals("UWB")?CYAN:GREEN;
-                        if(e.angle!=null){dot(c,x,y,radius,e.angle.floatValue(),String.format(Locale.ROOT,"%02d",index),color);}
-                        else{p.setStyle(Paint.Style.STROKE);p.setColor(color);p.setAlpha(100);p.setStrokeWidth(dp(2));c.drawCircle(x,y,radius,p);p.setAlpha(255);}
-                    }else if(!metric&&SystemClock.elapsedRealtime()-peer.seen<=12000){float band=peer.rssi>=-60?.25f:peer.rssi>=-75?.5f:.78f;
-                        p.setStyle(Paint.Style.STROKE);p.setColor(AMBER);p.setAlpha(65);p.setStrokeWidth(dp(4));c.drawCircle(x,y,r*band,p);p.setAlpha(255);}
-                }
-                text(c,metric?String.format(Locale.ROOT,"RADIJUS %.0f m",scale):"BLE • BEZ METARA",x,y-r-dp(15),10,MUTED);
-            }else text(c,"RADAR ZAUSTAVLJEN",x,y-r*.55f,10,MUTED);
-            p.setStyle(Paint.Style.FILL);p.setColor(CYAN);c.drawCircle(x,y,dp(7),p);
-            text(c,"TI",x,y+dp(25),10,CYAN);
-            text(c,heading==null?"KOMPAS —":String.format(Locale.ROOT,"NAPRIJED %03.0f° MAG",heading),x,y+r+dp(24),10,MUTED);
-        }
-        void dot(Canvas c,float x,float y,float radius,float angle,String name,int color){double a=Math.toRadians(angle);float px=x+(float)Math.sin(a)*radius,py=y-(float)Math.cos(a)*radius;
-            p.setStyle(Paint.Style.FILL);p.setColor(color);p.setAlpha(35);c.drawCircle(px,py,dp(16),p);p.setAlpha(255);c.drawCircle(px,py,dp(6),p);text(c,name,px,py-dp(13),10,color);}
     }
 }
