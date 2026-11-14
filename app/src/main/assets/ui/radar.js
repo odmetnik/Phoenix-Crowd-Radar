@@ -17,7 +17,6 @@ function render(){
  $('mailStatus').textContent=state.mailStatus||'';$('pingLabel').textContent=state.unread>0?'PING ('+state.unread+')':'PING';
  radarFit=geometry.fit(state.members,state.selected);if(radarFit.metric)zoom.set(radarFit.target,radarFit.focused?state.selected:null,performance.now());
  $('pingTarget').textContent=state.selectedName?'Odabrano: '+state.selectedName:'Na radaru prvo odaberi člana.';
- $('scale').textContent=state.demo?'SIMULACIJA · NEMA STVARNIH MJERENJA':(state.motion||'');
  const list=$('members');list.replaceChildren();if(!state.members.length){const p=document.createElement('div');p.className='empty';p.textContent=state.running?'Tražim članove iste grupe… Na drugom telefonu pokreni radar.':'Pokreni radar za traženje članova. GRUPA otvara pozivnice i uparivanje.';list.append(p);}
  state.members.forEach((m,i)=>{const b=document.createElement('button');b.className='member'+(state.selected===m.id?' selected':'');b.style.setProperty('--tone',color(m));b.setAttribute('aria-label',m.name+', '+details(m)+(m.stale?', zadnje viđen':''));
  const num=document.createElement('span');num.className='number';num.textContent=String(i+1).padStart(2,'0');const name=document.createElement('span');name.className='name';name.textContent=m.name;

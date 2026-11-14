@@ -31,3 +31,8 @@ state({members:[{id:1,name:'Vlado',source:'UWB',meters:.6,angle:null}]});assert.
 console.log('PASS: dynamic 0.5–2000 m scale, focus, zoom hysteresis, geometry, close-marker paint order and unknown direction');
 
 state({unread:2});assert.equal(elements.pingLabel.textContent,"PING (2)");
+
+const html=fs.readFileSync('app/src/main/assets/ui/index.html','utf8'),script=fs.readFileSync('app/src/main/assets/ui/radar.js','utf8');
+const htmlIds=new Set([...html.matchAll(/id="([^"]+)"/g)].map(m=>m[1]));
+for(const match of script.matchAll(/\$\('([^']+)'\)/g))assert.ok(htmlIds.has(match[1]),'Missing packaged HTML binding: '+match[1]);
+console.log('PASS: packaged HTML and UI script bindings');

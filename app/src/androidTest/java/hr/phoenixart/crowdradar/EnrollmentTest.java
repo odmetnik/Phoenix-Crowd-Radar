@@ -15,10 +15,23 @@ import android.widget.EditText;
 /** Emulator smoke tests exercise the actual Keystore and native enrollment dialogs. */
 @RunWith(AndroidJUnit4.class)
 public class EnrollmentTest {
+    void captureFocusFailure(){
+        try{
+            android.app.UiAutomation automation=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getUiAutomation();
+            android.graphics.Bitmap bitmap=automation.takeScreenshot();
+            android.content.Context context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();
+            if(bitmap!=null){android.content.ContentValues values=new android.content.ContentValues();values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"focus-failure.png");values.put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png");values.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/Phoenix");android.net.Uri uri=context.getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values);
+                if(uri!=null)try(java.io.OutputStream out=context.getContentResolver().openOutputStream(uri)){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}}
+            try(android.os.ParcelFileDescriptor fd=automation.executeShellCommand("dumpsys window windows");java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(fd.getFileDescriptor())))){
+                String line;while((line=reader.readLine())!=null)if(line.contains("mCurrentFocus")||line.contains("mFocusedApp"))System.out.println("UI focus diagnostic: "+line);
+            }
+        }catch(Exception ignored){}
+    }
     void awaitFocus(ActivityScenario<MainActivity> scenario){
         java.util.concurrent.atomic.AtomicBoolean focused=new java.util.concurrent.atomic.AtomicBoolean();
         long deadline=android.os.SystemClock.elapsedRealtime()+15000;
         do{scenario.onActivity(a->focused.set(a.hasWindowFocus()));if(!focused.get())android.os.SystemClock.sleep(100);}while(!focused.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
+        if(!focused.get())captureFocusFailure();
         assertTrue("Activity has foreground window focus before dialog input",focused.get());
     }
     @Test public void createGroupQrAndImportRoundTrip() {
@@ -43,6 +56,7 @@ public class EnrollmentTest {
             java.util.concurrent.atomic.AtomicBoolean ready=new java.util.concurrent.atomic.AtomicBoolean();
             long deadline=android.os.SystemClock.elapsedRealtime()+15000;
             do{scenario.onActivity(a->ready.set(a.dashboard.ready&&a.hasWindowFocus()));if(!ready.get())android.os.SystemClock.sleep(100);}while(!ready.get()&&android.os.SystemClock.elapsedRealtime()<deadline);
+            if(!ready.get())captureFocusFailure();
             assertTrue("Packaged WebView page loaded",ready.get());
             scenario.onActivity(a->{a.groupName="Interliber";a.dashboard.view.evaluateJavascript("document.getElementById('demo').click()",null);});
             java.util.concurrent.atomic.AtomicBoolean demoActive=new java.util.concurrent.atomic.AtomicBoolean();
