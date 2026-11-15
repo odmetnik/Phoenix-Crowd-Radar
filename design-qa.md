@@ -1,3 +1,19 @@
+# Provjera 0.8.0-dev — 15. 11. 2026.
+
+Produkcijski commit `fcef186560d4bc00fc5e0ea619da360e9163c312`, Actions run `43709164991`, job `132796783307`: uspjeh. Android build i lint, 40 CoreTest + 101 FeatureTest + 43 RelayTest provjere (ukupno 184), Node UI provjere i svih 10 Android testova prošli su bez preskakanja. Prethodni 0.8 run `43708324532` također je prošao svih deset Android testova.
+
+Novi Android testovi: stvarni šifrirani BLE MESH read handler dostavlja paket aplikacijskom callbacku; tri RadarEngine instance obrađuju iste kompaktne JSON pakete A → B → C i odgovor C → B → A. A dobiva krajnje GPS koordinate i potvrdu poruke od C; B nema poruku u inboxu. Sintetičko UWB očitanje od 2 m ne koristi se kao razmak A–C. Kada C isključi GPS, nestaju krajnji metri. To su protokolarne simulacije na Androidu, ne fizička RF veza tri telefona.
+
+Vizualno pregledan `relay-grid.png` iz uspješnog 0.8 UI artefakta `14159717567`: oznaka QA simulirani A–B–C, TI → Marko → Ana, GPS preko mreže ~111,2 m iz krajnjih testnih koordinata, strelica i polukružna metarska mreža. Posredni Marko nema izmišljene metre. Završna dorada mijenja ritam GATT razmjene i uklanjanje odgovorene poruke, ne renderer; ista native provjera prolazi u završnom runu. AR je shema, ne kalibrirano 3D sidro.
+
+Deterministička simulacija raspoređenih A–B–C čitanja kroz isti router dodatno je potvrdila povratne odgovore uz čekanje u redovima. Vrijeme simulacije nije proglašeno mjerenjem radio latencije. GPS procjena ostaje konzervativno ograničena punim povratnim putem i ukupnom starošću fixa do 10 s.
+
+Izdvojeni APK ima 17 483 924 bajta i SHA256 `bf34fdd467e51ba011b836a81b4beaa5311b5d3ab7a3704fcd92ad06f8eff586`. ZIP integritet i zapakirani Help VERSION 0.8.0-dev provjereni su. APK v2 certifikat SHA256 `a7cb647ac2a3e41b1aca44a40c4fc1d9359cefa83908a2ecc4b26b3018dacc8c` jednak je prethodnim razvojnim izdanjima.
+
+Preostalo fizički: barem tri telefona s 0.8 i uključenim povezivanjem, gdje nema A–C izravne veze, ali postoje A–B i B–C. Treba potvrditi dostavu/ACK, gubitak i povratak posrednika, dostupne radio putove, GPS uvjete, stvaran domet i bateriju. Bez dobrog GPS-a u paviljonu krajnji razmak ostaje nepoznat; UWB/RTT dionice ne zbrajaju se. Detalji u docs/RELAY_080.md i ugrađenoj pomoći.
+
+---
+
 # Provjera 0.7.0-dev — 15. 11. 2026. (Europe/Zagreb)
 
 Produkcijski kod `fe0a03fc62c3c5c05e4843a6d10268e6ff68702a`; testovi/dokumentacija `a98afae40a755878c598c9b2d8d58cc80acba263`. Uspješni Actions runovi `43654822983` i završni `43655640431` (job `132633413728`). Build, lint, 40 CoreTest + 101 FeatureTest provjera, Node UI provjere i svih osam Android testova prolaze bez preskakanja.
