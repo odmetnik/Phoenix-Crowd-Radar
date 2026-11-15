@@ -1,3 +1,19 @@
+# Provjera 0.7.0-dev — 15. 11. 2026. (Europe/Zagreb)
+
+Produkcijski kod `fe0a03fc62c3c5c05e4843a6d10268e6ff68702a`; testovi/dokumentacija `a98afae40a755878c598c9b2d8d58cc80acba263`. Uspješni Actions runovi `43654822983` i završni `43655640431` (job `132633413728`). Build, lint, 40 CoreTest + 101 FeatureTest provjera, Node UI provjere i svih osam Android testova prolaze bez preskakanja.
+
+Android test stvarno pokreće connectedDevice/location foreground servis iz vidljive Activity, spušta Activity u CREATED, ponovno je prikazuje i recreates; ista engine instanca, session ID i aktivni servis ostaju sačuvani. Zatim eksplicitni Stop gasi sesiju. Ovo potvrđuje životni ciklus na emulatoru, ne OEM štednju/Doze ili fizički radio na zaključanom Samsungu.
+
+Native test provjerava RTT prioritet, izostanak izmišljenog smjera i istek razmaka nakon 8 s pomoću sintetičkog rezultata. Kamera test otvara, brzo zatvara i ponovno otvara CameraX preview, zatim oslobađa kameru. Snimka kamere može uhvatiti prethodni kadar; zato test uz nju sprema i `ar-grid.png`, sinkroni crtež stvarnog native HUD-a sa svježom sintetičkom UWB udaljenošću 3,2 m i kutom 25°. Assert provjerava vrijednost/smjer prije crtanja. To nije fizičko UWB mjerenje niti kalibracija kamere.
+
+Vizualno pregledani završni dashboard i native AR grid: čitljivi odvojeni gumbi za povezivanje/odabir, postojeći cyber radar, AR velika strelica, smjer, izvor, udaljenost i metarski lukovi 1,3 / 2,5 / 3,8 / 5,0 m za radijus 5 m. Ugrađeni popis prikazuje članove s metrima i izričito — m kada nema mjerenja. Grid je shematski tlocrt, ne projekcija u videosliku. Testna imena su jasno označena QA.
+
+Završni UI artefakt `14137774357`, APK artefakt `14137594262`. APK je bajt-po-bajt jednak prethodnom uspješnom runu: 17 465 572 bajta, SHA256 `2f36a21c3957fb683362a630c0954e6c3763de9cd95ef8197873f358c0c1a41f`. Integritet ZIP-a i zapakirani Help VERSION provjereni. APK v2 certifikat SHA256 `a7cb647ac2a3e41b1aca44a40c4fc1d9359cefa83908a2ecc4b26b3018dacc8c` jednak je ranijim razvojnim verzijama.
+
+Preostalo fizički: interoperabilnost BLE/Nearby/Aware/RTT/UWB na konkretnim telefonima, prijenos poruka i ponovno povezivanje u gužvi, stvaran dobitak dometa i potrošnja, Samsungovi režimi štednje te UWB/camera poravnanje. Nijedno od toga nije proglašeno potvrđenim samim buildom ili emulatorom. Detalji u docs/SESSION_AUTOCONNECT_070.md i ažuriranoj ugrađenoj pomoći.
+
+---
+
 # Provjera 0.6.0-dev — 14. 11. 2026.
 
 Produkcijski commit `45b7f393f2f89334afac62b0c6f111bbe351ae65`; GitHub Actions run `43645804894`, job `132603168191`: uspjeh. Android assembleDebug i lintDebug prošli. Prošlo 40 CoreTest + 78 FeatureTest provjera, Node testovi stvarnog UI skripta i svih šest Android testova (bez preskakanja).

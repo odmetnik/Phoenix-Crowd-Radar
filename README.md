@@ -2,7 +2,7 @@
 
 Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GPS razmjena i UWB sesija za odabrani par. Phoenix Art / by Željko Kušter.
 
-**0.7: foreground sesija, automatski BLE/Nearby/Aware/RTT pokušaji i AR mreža udaljenosti. Android build/lint i emulator provjere kroz GitHub Actions; fizičku kompatibilnost i dobitak dometa treba potvrditi na telefonima.** Android 12+.
+**0.7: build, lint, 141 provjera jezgre i svih osam Android testova prošli su u [GitHub Actions](https://github.com/odmetnik/Phoenix-Crowd-Radar/actions/runs/43655640431). Fizičku kompatibilnost, domet i OEM štednju treba potvrditi na telefonima.** Android 12+.
 
 ## Što radi 0.7
 
