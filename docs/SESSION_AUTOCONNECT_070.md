@@ -1,5 +1,7 @@
 # 0.7 — trajna sesija, automatsko povezivanje i AR udaljenosti
 
+Podloga 0.7; nadogradnja s prosljeđivanjem opisana je u [RELAY_080.md](RELAY_080.md).
+
 ## Ekran više ne posjeduje radio
 
 `RadarApp` posjeduje `RadarEngine` s Application kontekstom. U njemu su BLE/GATT, Nearby, Aware, GPS, UWB, članovi, poruke i fokus. Ne zadržava Activity, View, kameru ni callback ekrana. `MainActivity` čita stanje i šalje korisničke naredbe. Ponovno stvaranje ili odlazak ekrana ne gasi sesiju.

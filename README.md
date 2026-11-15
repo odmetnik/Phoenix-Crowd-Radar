@@ -1,11 +1,14 @@
-# Phoenix Crowd Radar — 0.7.0-dev
+# Phoenix Crowd Radar — 0.8.0-dev
 
 Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GPS razmjena i UWB sesija za odabrani par. Phoenix Art / by Željko Kušter.
 
-**0.7: build, lint, 141 provjera jezgre i svih osam Android testova prošli su u [GitHub Actions](https://github.com/odmetnik/Phoenix-Crowd-Radar/actions/runs/43655640431). Fizičku kompatibilnost, domet i OEM štednju treba potvrditi na telefonima.** Android 12+.
+**0.8: ograničeno prosljeđivanje preko članova grupe, preneseni GPS krajnjeg telefona i potvrde poruka od krajnje aplikacije. Stvarni radio prijenos kroz tri telefona i domet zahtijevaju fizički test.** Android 12+.
 
-## Što radi 0.7
+## Što radi 0.8
 
+- TI → Marko → Ana: lokalno prosljeđivanje kroz najviše četiri veze, s oznakom puta i odvojenom svježinom krajnjeg odgovora.
+- Krajnji metri samo iz dobrih svježih koordinata A i C, s konzervativno pribrojenim povratnim putem. Bez GPS-a nema izmišljene udaljenosti ni zbrajanja UWB/RTT dionica.
+- Poruke i PING preko posrednika; dostavu potvrđuje krajnja aplikacija. Za posrednike treba 0.8 na svim uređajima na putu.
 - Korisnički pokrenut foreground servis s obavijesti i Zaustavi; aktivna sesija i poruke preživljavaju zaključavanje i ponovno stvaranje ekrana. Nema kamere u pozadini, boot autostarta ili sticky restarta. Sesija najviše 6 h.
 - Automatski ponovni BLE/Nearby/Aware pokušaji, odvojena svježina podataka i upozorenje na gubitak/povratak odabranog člana.
 - Izravni šifrirani Wi-Fi Aware kanal bez GMS-a te pokušaji stvarnog RTT razmaka fokusiranog kompatibilnog Aware člana. RTT nije smjer; rad svih čipova treba fizički provjeriti.
@@ -37,7 +40,9 @@ Android aplikacija za pronalaženje članova grupe: cyber radar, BLE blizina, GP
 4. Za UWB na oba kompatibilna telefona uključi UWB u sustavu, dodirni kolegu i odaberi **Traži UWB**. Drži telefon uspravno u portretu. Oba odabira napravi unutar približno 25 s.
 5. Pomoć objašnjava točke, krugove bez smjera, izvore, pogreške i domet.
 
-Korisnički pokrenut servis nastavlja sesiju uz zaključan ekran i druge aplikacije; Stop zatvara GPS i sve veze. Android/OEM mogu ograničiti radio i UWB. GPS sam ne proširuje radijski domet. Nema mesha ni servera za udaljeno praćenje. Zvučni PING odabranom članu šalje se lokalnom vezom; nema potvrde dostave. Aware i RTT implementirani su za kompatibilne članove, uz prikaz stvarne dostupnosti i uspješnog mjerenja. Nearby numeričko uparivanje koristi Bluetooth/Wi-Fi i Google Play usluge; ne treba internetski router. Google SDK ima vlastitu analitiku.
+Korisnički pokrenut servis nastavlja sesiju uz zaključan ekran i druge aplikacije; Stop zatvara GPS i sve veze. Android/OEM mogu ograničiti radio i UWB. GPS sam ne proširuje radijski domet. Postoji ograničeno aplikacijsko prosljeđivanje unutar grupe; nema internetskog servera za udaljeno praćenje. Zvučni PING odabranom članu šalje se lokalnom vezom; nema potvrde dostave. Aware i RTT implementirani su za kompatibilne članove, uz prikaz stvarne dostupnosti i uspješnog mjerenja. Nearby numeričko uparivanje koristi Bluetooth/Wi-Fi i Google Play usluge; ne treba internetski router. Google SDK ima vlastitu analitiku.
+
+0.8 prosljeđivanje, GPS i zaštita od petlji: [docs/RELAY_080.md](docs/RELAY_080.md).
 
 0.7 arhitektura, ograničenja i provjere: [docs/SESSION_AUTOCONNECT_070.md](docs/SESSION_AUTOCONNECT_070.md).
 

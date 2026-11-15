@@ -129,7 +129,7 @@ final class RadarEngine {
     JSONObject relayBody(int endpoint,long now)throws Exception{JSONObject body=new JSONObject();ShortMessages.Entry message=messages.pending(now);if(message!=null&&message.peer==endpoint)body.put("i",message.id).put("s",message.text);if(pingId!=0&&pingTarget==endpoint&&now-pingAt<10000)body.put("z",pingId);return body;}
     void relayUrgent(int endpoint){MainActivity.Peer peer=peers.get(endpoint);if(peer==null||directFresh(peer)||relay.route(endpoint,SystemClock.elapsedRealtime())==null)return;try{relay.cancelQuery(endpoint);relay.query(endpoint,relayBody(endpoint,SystemClock.elapsedRealtime()).toString(),SystemClock.elapsedRealtime());radioFocus(endpoint);}catch(Exception ignored){}}
     void relayTick(long now){try{
-        if(now-lastAdvertise>=6000){lastAdvertise=now;relay.advertise(new JSONObject().put("u",own.id).put("n",own.name).put("c",own.caps).toString(),now);}
+        if(now-lastAdvertise>=6000){lastAdvertise=now;String name=own.name;JSONObject ad=new JSONObject().put("u",own.id).put("n",name).put("c",own.caps);while(ad.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>RelayRouter.MAX_BODY&&name.length()>1){name=name.substring(0,name.offsetByCodePoints(name.length(),-1));ad.put("n",name+"…");}relay.advertise(ad.toString(),now);}
         if(now-lastQuery<2000)return;lastQuery=now;List<RelayRouter.Route> routes=relay.routes(now),ordered=new ArrayList<>();
         for(RelayRouter.Route r:routes)if(Objects.equals(selectedSession,r.endpoint))ordered.add(r);
         for(int i=0;i<routes.size();i++){RelayRouter.Route r=routes.get(Math.floorMod(routeCursor+i,routes.size()));if(!Objects.equals(selectedSession,r.endpoint))ordered.add(r);}

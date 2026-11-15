@@ -137,9 +137,9 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
                 members.put(new JSONObject().put("id",2).put("name","Ana").put("source","GPS").put("meters",38).put("angle",224));
                 members.put(new JSONObject().put("id",3).put("name","Ivan").put("source","BLE").put("meters",JSONObject.NULL).put("angle",JSONObject.NULL));}
             else for(Peer peer:engine.peers.values()){
-                Estimate e=estimate(peer);boolean stale=!peerFresh(peer);
+                Estimate e=estimate(peer);boolean stale=!peerFresh(peer);long last=Math.max(peer.relayAt,Math.max(peer.seen,peer.stateAt));
                 members.put(new JSONObject().put("id",peer.id).put("name",peer.alias).put("source",e.distanceSource.replace(" ~",""))
-                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale).put("age",Math.max(0,SystemClock.elapsedRealtime()-Math.max(peer.relayAt,Math.max(peer.seen,peer.stateAt)))/1000).put("relayed",engine.relayed(peer)).put("route",engine.routeLabel(peer)).put("link",engine.links(peer)).put("direction",e.directionSource).put("note",e.note));
+                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale).put("age",last>0?Math.max(0,SystemClock.elapsedRealtime()-last)/1000:JSONObject.NULL).put("relayed",engine.relayed(peer)).put("route",engine.routeLabel(peer)).put("link",engine.links(peer)).put("direction",e.directionSource).put("note",e.note));
             }
             Peer target=engine.selectedSession==null?null:engine.peers.get(engine.selectedSession);data.put("selectedName",target==null?"":target.alias);
             data.put("members",members);dashboard.render(data);
