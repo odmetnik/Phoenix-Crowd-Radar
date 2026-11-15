@@ -106,7 +106,7 @@ final class ProfileLink {
                     if(mesh!=null){if(!gatt.readCharacteristic(mesh))close();return;}
                 }else if(MESH.equals(c.getUuid())){if(!json.getString("kind").equals("x"))throw new IllegalArgumentException();if(meshListener!=null)meshListener.state(peer,json,latency);
                 }else throw new IllegalArgumentException();
-                busy=false;main.postDelayed(this::cycle,peer==focus?1000:2500);
+                busy=false;main.postDelayed(this::cycle,mesh!=null||peer==focus?1000:2500);
             }catch(Exception e){close();}
         }
         void close(){if(closed)return;closed=true;meshSupport.accept(peer,false);mailSupport.accept(peer,false);if(clients.get(peer)==this)clients.remove(peer);if(gatt!=null)try{gatt.disconnect();gatt.close();}catch(RuntimeException ignored){}gatt=null;}

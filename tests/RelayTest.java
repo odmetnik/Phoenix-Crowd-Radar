@@ -19,7 +19,7 @@ public class RelayTest {
   RelayRouter.Delivery request=c.receive(22,bQuery,1300);check(request!=null&&request.packet.target==33);
   c.respond(request.packet,"{}",1400);RelayRouter.Packet reply=take(c,'r',33,1400);
   check(b.receive(33,reply,1500)==null);RelayRouter.Packet bReply=take(b,'r',33,1500);
-  RelayRouter.Delivery answer=a.receive(22,bReply,1800);check(answer!=null);check(answer.roundTrip==700);check(answer.route.via==22&&answer.route.hops==2);
+  RelayRouter.Delivery answer=a.receive(22,bReply,1800);check(answer!=null);check(answer.roundTrip==700);boolean removed=true;for(int i=0;i<8;i++){var p=a.outgoing(1801);if(p!=null&&p.kind=='q'&&p.id.equals(query.id))removed=false;}check(removed);check(answer.route.via==22&&answer.route.hops==2);
   check(a.receive(22,bReply,1801)==null);check(RelayRouter.fixAge(100,answer.roundTrip)==800);
   check(RelayRouter.fixAge(100,10000)==Long.MAX_VALUE);check(RelayRouter.fixAge(-1,10)==Long.MAX_VALUE);check(RelayRouter.fixAge(0,10001)==Long.MAX_VALUE);
   // A cached or unsolicited response cannot refresh endpoint coordinates after the request expires.

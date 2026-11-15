@@ -47,6 +47,7 @@ public final class RelayRouter {
         // An unsolicited reply must not poison the pending request or discovery state.
         Query q=p.kind=='r'&&p.target==local?pending.get(p.id):null;
         if(p.kind=='r'&&p.target==local&&(q==null||q.target!=p.origin||now<q.sent||now-q.sent>QUERY_TIMEOUT))return null;
+        if(p.kind=='r'){String requestKey="q:"+p.target+":"+p.id;Queued request=queue.get(requestKey);if(request!=null&&request.packet.target==p.origin)queue.remove(requestKey);}
         seen.put(p.key(),now);Route route=new Route(p,from,now);Route old=routes.get(p.origin);
         if((p.kind=='r'&&p.target==local)||old==null||route.hops<=old.hops||now-old.seen>10000){if(routes.size()<24||old!=null)routes.put(p.origin,route);}
         if(p.kind=='q'&&p.target==local)return new Delivery(p,route,0);

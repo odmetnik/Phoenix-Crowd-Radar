@@ -12,7 +12,7 @@ Put uključuje stvarno prođene session ID-eve. Provjeravaju se početak/izvor, 
 
 Body ima najviše 230 UTF-8 bajtova kako bi potpuni četverokoračni GATT okvir s najduljim signed ID-evima i nonceom ostao do 512 bajtova. Duga/escapirana imena se po potrebi skraćuju. Objave se obnavljaju svakih 6 s; lokalni red objava traje 16 s, zahtjeva/odgovora 8 s. Rute istječu 30 s nakon opažanja. Maksimum četiri veze nije jamstvo određenog broja metara niti rada svih čipova istodobno.
 
-Fokus krajnjeg člana daje radio-prioritet prvom susjedu na putu. Novi zahtjevi stvaraju se najranije svake 2 s, uz postojeći otvoreni zahtjev najviše 20 s. Fokusirani član ima prednost; ostali se obilaze. Slanje poruke/PING-a zamjenjuje stari zahtjev svježim, s aktualnim sadržajem. Član koji samo prenosi poruku ne dodaje je u svoj inbox. Deduplikacija poruke ostaje po postojećem ID-u, a potvrda se pripisuje krajnjem izvoru, ne posredniku.
+MESH sposobni GATT klijenti imaju pauzu 1 s nakon dovršene razmjene, umjesto starog nefokusiranog intervala 2,5 s. Zahtjev se iz reda uklanja kad prođe odgovarajući odgovor; stare kopije ne usporavaju novi upit. To povećava radio promet/potrošnju i ne jamči točan interval na svim uređajima. Fokus krajnjeg člana daje radio-prioritet prvom susjedu na putu. Novi zahtjevi stvaraju se najranije svake 2 s, uz postojeći otvoreni zahtjev najviše 20 s. Fokusirani član ima prednost; ostali se obilaze. Slanje poruke/PING-a zamjenjuje stari zahtjev svježim, s aktualnim sadržajem. Član koji samo prenosi poruku ne dodaje je u svoj inbox. Deduplikacija poruke ostaje po postojećem ID-u, a potvrda se pripisuje krajnjem izvoru, ne posredniku.
 
 ## Udaljenost krajnjeg telefona
 
