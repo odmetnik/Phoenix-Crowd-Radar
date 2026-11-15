@@ -61,7 +61,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     });
     static class Peer {
         int id; double rssi, baseline; long seen; String alias; DeviceProfile profile;
-        boolean canMessage; boolean hasGeo; double lat,lon,error; long fixAge,geoAt,stateAt,lastPing;
+        boolean canMessage,canRelay,geoViaMesh;long relayAt;int relayHops,relayVia;boolean hasGeo; double lat,lon,error; long fixAge,geoAt,stateAt,lastPing;
         Peer(int id, int signal) { this.id=id; rssi=baseline=signal; alias=String.format(Locale.ROOT,"Član %04X", id & 65535); }
     }
     @Override public void onCreate(Bundle saved) {
@@ -139,7 +139,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             else for(Peer peer:engine.peers.values()){
                 Estimate e=estimate(peer);boolean stale=!peerFresh(peer);
                 members.put(new JSONObject().put("id",peer.id).put("name",peer.alias).put("source",e.distanceSource.replace(" ~",""))
-                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale).put("age",Math.max(0,SystemClock.elapsedRealtime()-Math.max(peer.seen,peer.stateAt))/1000).put("link",engine.links(peer)).put("direction",e.directionSource).put("note",e.note));
+                    .put("meters",!stale&&Double.isFinite(e.meters)?e.meters:JSONObject.NULL).put("angle",!stale&&e.angle!=null?e.angle:JSONObject.NULL).put("stale",stale).put("age",Math.max(0,SystemClock.elapsedRealtime()-Math.max(peer.relayAt,Math.max(peer.seen,peer.stateAt)))/1000).put("relayed",engine.relayed(peer)).put("route",engine.routeLabel(peer)).put("link",engine.links(peer)).put("direction",e.directionSource).put("note",e.note));
             }
             Peer target=engine.selectedSession==null?null:engine.peers.get(engine.selectedSession);data.put("selectedName",target==null?"":target.alias);
             data.put("members",members);dashboard.render(data);
@@ -170,20 +170,20 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
     }).setNegativeButton("Odustani",null).show();}
     void choosePeer(){
         if(engine.peers.isEmpty()){setStatus("Radar radi. Čekam kolege iz iste grupe.");return;}
-        Peer[] list=engine.peers.values().toArray(new Peer[0]);String[] names=new String[list.length];for(int i=0;i<list.length;i++)names[i]=list[i].alias;
+        Peer[] list=engine.peers.values().toArray(new Peer[0]);String[] names=new String[list.length];for(int i=0;i<list.length;i++)names[i]=list[i].alias+(engine.relayed(list[i])?" • preko članova":"");
         new AlertDialog.Builder(this).setTitle("Traži osobu").setItems(names,(d,i)->selectPeer(list[i].id)).setNegativeButton("Zatvori",null).show();
     }
     void selectPeer(int id){
         if(demo){setStatus("DEMO • odabir je simuliran.");return;}
         Peer peer=engine.peers.get(id);if(peer==null)return;engine.focus(id);renderDashboard();
         String details=(peer.seen>0?"Zadnji BLE signal: "+Math.round(peer.rssi)+" dBm • "+RadarMath.band(peer.rssi):"BLE RSSI nije izmjeren")+"\n"+engine.links(peer)+"\n"+(peer.profile==null?"Profil još nije razmijenjen.":peer.profile.model+"\nPodržano: "+Capabilities.supported(peer.profile.caps));
-        new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\n"+details+"\n\nUWB se pokušava automatski za odabranu osobu. Držite telefone uspravno u portretu. Ručni pokušaj dostupan je dolje.")
+        new AlertDialog.Builder(this).setTitle(peer.alias).setMessage(measurementText(peer)+"\n\n"+details+"\n\n"+(engine.relayed(peer)?"Krajnji telefon povezan je preko drugih članova. Metri i smjer ovise o svježim krajnjim GPS koordinatama; UWB treba izravnu vezu.":"UWB se pokušava automatski za odabranu osobu. Držite telefone uspravno u portretu. Ručni pokušaj dostupan je dolje."))
             .setPositiveButton("Traži UWB",(d,w)->{startUwb(peer);renderDashboard();}).setNeutralButton("Pošalji ping",(d,w)->{sendPing();renderDashboard();}).setNegativeButton("Zatvori",null).show();
     }
     void sendPing(){
         Peer peer=engine.selectedSession==null?null:engine.peers.get(engine.selectedSession);
         if(demo||!engine.searching||peer==null||peer.profile==null||!peerFresh(peer)){setStatus("Pokreni radar i odaberi aktivnog člana s razmijenjenim profilom.");return;}
-        engine.pingTarget=peer.id;engine.pingId=new SecureRandom().nextInt(Integer.MAX_VALUE)+1L;engine.pingAt=SystemClock.elapsedRealtime();setStatus("Ping pripremljen za "+peer.alias+". Dostava ovisi o aktivnoj vezi; nema potvrde primitka.");
+        engine.pingTarget=peer.id;engine.pingId=new SecureRandom().nextInt(Integer.MAX_VALUE)+1L;engine.pingAt=SystemClock.elapsedRealtime();engine.relayUrgent(peer.id);setStatus("Ping pripremljen za "+peer.alias+". Dostava ovisi o aktivnoj vezi; nema potvrde primitka.");
     }
     String mailSummary(){
         java.util.List<hr.phoenixart.crowdradar.core.ShortMessages.Entry> history=engine.messages.history(SystemClock.elapsedRealtime());
@@ -207,7 +207,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
             .setView(input).setPositiveButton("Pošalji",null).setNegativeButton("Odustani",null).create();
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
             if(!engine.searching||!peerFresh(peer)||!canMessage(peer)){input.setError("Član više nema aktivnu vezu.");return;}
-            try{engine.messages.send(peer.id,peer.alias,input.getText().toString(),SystemClock.elapsedRealtime());engine.profiles.focus=peer.id;engine.mailStatus="";dialog.dismiss();renderDashboard();}
+            try{engine.messages.send(peer.id,peer.alias,input.getText().toString(),SystemClock.elapsedRealtime());engine.radioFocus(peer.id);engine.relayUrgent(peer.id);engine.mailStatus="";dialog.dismiss();renderDashboard();}
             catch(IllegalArgumentException|IllegalStateException e){input.setError(e.getMessage());}
         }));dialog.show();
     }
@@ -225,8 +225,8 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         try(java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(getAssets().open("help.txt"),StandardCharsets.UTF_8))){
             StringBuilder text=new StringBuilder();String line;while((line=reader.readLine())!=null)text.append(line).append('\n');
             String full=text.toString();
-            String[] titles={"Brzi početak","Bluetooth / BLE","GPS / GNSS","UWB traženje","Kompas","QR, kod i Wi-Fi","Poruke i PING","Radar i preciznost","AR smjer / kamera","Privatnost i ograničenja","Promjene verzije","Cijela pomoć"};
-            String[] markers={"BRZI POČETAK","BLE — BLIZINA","GPS / GNSS —","UWB — IZRAVNO","KOMPAS I ORIJENTACIJA","QR, BROJČANI KOD","PORUKE I PING","KAKO ČITATI RADAR","AR — EKSPERIMENTALNI","PRIVATNOST I OGRANIČENJA","PROMJENE —"};
+            String[] titles={"Brzi početak","Bluetooth / BLE","GPS / GNSS","UWB traženje","Kompas","QR, kod i Wi-Fi","Poruke i PING","Radar i preciznost","Prosljeđivanje / krajnja udaljenost","AR smjer / kamera","Privatnost i ograničenja","Promjene verzije","Cijela pomoć"};
+            String[] markers={"BRZI POČETAK","BLE — BLIZINA","GPS / GNSS —","UWB — IZRAVNO","KOMPAS I ORIJENTACIJA","QR, BROJČANI KOD","PORUKE I PING","KAKO ČITATI RADAR","PROSLJEĐIVANJE I UDALJENOST","AR — EKSPERIMENTALNI","PRIVATNOST I OGRANIČENJA","PROMJENE —"};
             new AlertDialog.Builder(this).setTitle("Pomoć • "+appVersion()).setItems(titles,(d,which)->{
                 String content=full;
                 if(which<markers.length){int start=full.indexOf(markers[which]);int end=which+1<markers.length?full.indexOf(markers[which+1]):full.length();
@@ -256,6 +256,7 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         engine.gps.start();gpsButton.setText("ISKLJUČI GPS DIJELJENJE");setStatus(engine.gps.state);
     }
     void startUwb(Peer peer){
+        if(!engine.directFresh(peer)){setStatus("UWB treba izravnu vezu s krajnjim telefonom. Prosljeđivanje prenosi podatke, ne proširuje UWB mjerenje.");return;}
         if(!engine.searching||peer.profile==null){setStatus("Pokreni radar i pričekaj razmjenu profila.");return;}
         engine.focus(peer.id);
         if((engine.own.caps&peer.profile.caps&Capabilities.UWB)==0){setStatus("Oba telefona moraju imati UWB. GPS/BLE ostaju dostupni.");return;}
@@ -360,20 +361,20 @@ public final class MainActivity extends ComponentActivity implements SensorEvent
         double meters=Double.NaN;Double angle;String distanceSource="BLE",directionSource="bez smjera",note="";
     }
     Estimate estimate(Peer peer){
-        Estimate e=new Estimate();if(engine.nearby.live(peer.id))e.distanceSource="Nearby";if(engine.aware.live(peer.id))e.distanceSource="Wi-Fi Aware";long now=SystemClock.elapsedRealtime();
-        boolean uwbLive=engine.selectedSession!=null&&engine.selectedSession==peer.id&&engine.uwb.targetSession==peer.id&&engine.uwb.distance!=null&&Navigation.fresh(engine.uwb.measuredAt,now,3000);
+        Estimate e=new Estimate();if(engine.nearby.live(peer.id))e.distanceSource="Nearby";if(engine.aware.live(peer.id))e.distanceSource="Wi-Fi Aware";long now=SystemClock.elapsedRealtime();if(engine.relayed(peer)){e.distanceSource="MREŽA";e.note=engine.routeLabel(peer)+" • udaljenost se ne zbraja po vezama";}
+        boolean uwbLive=engine.directFresh(peer)&&engine.selectedSession!=null&&engine.selectedSession==peer.id&&engine.uwb.targetSession==peer.id&&engine.uwb.distance!=null&&Navigation.fresh(engine.uwb.measuredAt,now,3000);
         if(uwbLive){e.meters=engine.uwb.distance;e.distanceSource="UWB";e.note="Pogreška UWB-a nije prijavljena";
             if(engine.uwb.azimuth!=null&&Navigation.antennaPosture(backHorizontal,displayRotation)&&Navigation.fresh(postureAt,now,2000)){e.angle=RadarMath.normalize(engine.uwb.azimuth);e.directionSource="UWB kut antene";}
             else if(engine.uwb.azimuth!=null)e.note="Za UWB kut drži telefon uspravno u portretu";
             else e.note+=" • "+(engine.uwb.angleSupported?"UWB kut trenutačno nije izmjeren":"Lokalni UWB servis ne prijavljuje podršku za kut");
         }
-        boolean rttLive=!uwbLive&&engine.aware.measuredPeer==peer.id&&engine.aware.distance!=null&&Navigation.fresh(engine.aware.measuredAt,now,8000);
+        boolean rttLive=engine.directFresh(peer)&&!uwbLive&&engine.aware.measuredPeer==peer.id&&engine.aware.distance!=null&&Navigation.fresh(engine.aware.measuredAt,now,8000);
         if(rttLive){e.meters=engine.aware.distance;e.distanceSource="Wi-Fi RTT";e.note="RTT bez izmjerenog smjera"+(engine.aware.spread==null?"":String.format(Locale.ROOT," • standardna devijacija %.2f m (nije granica pogreške)",engine.aware.spread));}
         boolean metricLive=uwbLive||rttLive;
         Location mine=engine.gps.fix;long theirAge=Navigation.receivedFixAge(peer.fixAge,0,Math.max(0,now-peer.geoAt));
         if(engine.gps.sharing&&mine!=null&&peer.hasGeo&&Navigation.validFix(mine.getLatitude(),mine.getLongitude(),mine.getAccuracy(),engine.gps.age())&&Navigation.validFix(peer.lat,peer.lon,peer.error,theirAge)){
             double d=RadarMath.distance(mine.getLatitude(),mine.getLongitude(),peer.lat,peer.lon),errors=mine.getAccuracy()+peer.error;
-            if(!metricLive){e.meters=d;e.distanceSource="GPS ~";e.note=String.format(Locale.ROOT,"Procjene pogreške telefona: %.0f + %.0f m",mine.getAccuracy(),peer.error);}
+            if(!metricLive){e.meters=d;e.distanceSource=peer.geoViaMesh&&!engine.directFresh(peer)?"GPS preko mreže ~":"GPS ~";e.note=String.format(Locale.ROOT,"Procjene pogreške telefona: %.0f + %.0f m",mine.getAccuracy(),peer.error)+(peer.geoViaMesh?" • "+engine.routeLabel(peer):"");}
             boolean consistent=!metricLive||Navigation.consistent(d,e.meters,errors);
             float declination=engine.gps.declination();
             if(e.angle==null&&consistent&&heading!=null&&Float.isFinite(declination)&&Navigation.fresh(headingAt,now,2000)&&RadarMath.gpsDirectionUsable(d,mine.getAccuracy(),peer.error,engine.gps.age(),theirAge)){

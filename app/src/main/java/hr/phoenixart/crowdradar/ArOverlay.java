@@ -61,6 +61,7 @@ final class ArOverlay {
                 if(angle!=null){arrow(c,w/2,159*d,angle,22*d,MainActivity.CYAN);text(c,ArGuide.turn(angle)+" • "+Math.round(Math.abs(ArGuide.signed(angle)))+"°",pad,194*d,12*d,MainActivity.CYAN,w-2*pad);}
                 else text(c,!fresh?"VEZA ZASTARJELA":!upright?"DRŽI USPRAVNO U PORTRETU":"SMJER NIJE IZMJEREN",pad,159*d,12*d,MainActivity.AMBER,w-2*pad);
             }
+            if(!list.isEmpty()&&engine.relayed(list.get(0)))text(c,engine.routeLabel(list.get(0)),pad,214*d,11*d,MainActivity.GREEN,w-2*pad);
             if(metric&&upright)for(int i=0;i<list.size();i++){
                 var peer=list.get(i);var e=estimates.get(i);if(!activity.peerFresh(peer)||e.angle==null||!Double.isFinite(e.meters))continue;
                 double a=ArGuide.signed(e.angle);if(Math.abs(a)>90)continue;double norm=Math.min(1,e.meters/scale),r=Math.toRadians(a);float x=w/2+(float)(Math.sin(r)*radius*norm),y=cy-(float)(Math.cos(r)*radius*norm);

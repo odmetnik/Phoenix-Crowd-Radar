@@ -151,6 +151,46 @@ public class EnrollmentTest {
             });
         }
     }
+    static org.json.JSONObject relayPacket(RadarEngine engine,char kind,int origin)throws Exception{
+        for(int i=0;i<100;i++){hr.phoenixart.crowdradar.core.RelayRouter.Packet p=engine.relay.outgoing(android.os.SystemClock.elapsedRealtime());if(p!=null&&p.kind==kind&&p.origin==origin)return RelayWire.json(p);}throw new AssertionError("No relay packet");
+    }
+    static org.json.JSONObject matchingRelay(RadarEngine engine,char kind,int origin,String id)throws Exception{
+        for(int i=0;i<100;i++){var p=engine.relay.outgoing(android.os.SystemClock.elapsedRealtime());if(p!=null&&p.kind==kind&&p.origin==origin&&p.id.equals(id))return RelayWire.json(p);}throw new AssertionError("No matching relay packet");
+    }
+    static void transferRelay(RadarEngine a,RadarEngine b,RadarEngine c)throws Exception{
+        org.json.JSONObject request=relayPacket(a,'q',11);String id=request.getString("i");b.receiveRelay(11,request);c.receiveRelay(22,matchingRelay(b,'q',11,id));b.receiveRelay(33,matchingRelay(c,'r',33,id));a.receiveRelay(22,matchingRelay(b,'r',33,id));
+    }
+    @Test public void encryptedGattMeshReadInvokesRelayHandler(){
+        android.content.Context context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+            ProfileLink link=new ProfileLink(context,(id,p,n,r)->{});link.active=true;link.secret=new byte[32];ProfileLink.Client client=link.new Client(22,link.generation);link.clients.put(22,client);client.nonce=new byte[16];client.requested=android.os.SystemClock.elapsedRealtime();
+            java.util.concurrent.atomic.AtomicInteger delivered=new java.util.concurrent.atomic.AtomicInteger();link.meshListener=(id,data,latency)->{assertEquals(22,id);assertEquals("a",data.optString("k"));delivered.incrementAndGet();};
+            try{org.json.JSONObject frame=RelayWire.json(new hr.phoenixart.crowdradar.core.RelayRouter.Packet('a',"1234567890123456",22,0,java.util.List.of(22),"{}"));frame.put("kind","x").put("session",22).put("n",android.util.Base64.encodeToString(client.nonce,android.util.Base64.NO_WRAP));
+                client.read(new android.bluetooth.BluetoothGattCharacteristic(ProfileLink.MESH,android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ,android.bluetooth.BluetoothGattCharacteristic.PERMISSION_READ),hr.phoenixart.crowdradar.core.ProfileCrypto.seal(link.secret,frame.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),android.bluetooth.BluetoothGatt.GATT_SUCCESS);
+                assertEquals(1,delivered.get());
+            }catch(Exception e){throw new AssertionError(e);}finally{link.stop();}
+        });
+    }
+    @Test public void threeNodeRelayUsesEndpointCoordinatesAndEndpointAcknowledgement(){
+        try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+            scenario.onActivity(activity->{RadarEngine original=activity.engine;activity.stop();RadarEngine a=new RadarEngine(activity),b=new RadarEngine(activity),c=new RadarEngine(activity);
+                try{a.searching=b.searching=c.searching=true;a.session=11;b.session=22;c.session=33;a.relay=new hr.phoenixart.crowdradar.core.RelayRouter(11);b.relay=new hr.phoenixart.crowdradar.core.RelayRouter(22);c.relay=new hr.phoenixart.crowdradar.core.RelayRouter(33);
+                    MainActivity.Peer bridge=new MainActivity.Peer(22,-50);bridge.alias="Marko";bridge.seen=android.os.SystemClock.elapsedRealtime();a.peers.put(22,bridge);
+                    c.relay.advertise(new org.json.JSONObject().put("u",java.util.UUID.randomUUID().toString()).put("n","Ana").put("c",63).toString(),android.os.SystemClock.elapsedRealtime());
+                    b.receiveRelay(33,relayPacket(c,'a',33));a.receiveRelay(22,relayPacket(b,'a',33));MainActivity.Peer target=a.peers.get(33);assertNotNull(target);assertEquals("Ana",target.alias);assertTrue(a.relayed(target));assertTrue(a.routeLabel(target).contains("Marko"));
+                    android.location.Location mine=new android.location.Location("gps");mine.setLatitude(46.2);mine.setLongitude(16.1);mine.setAccuracy(3);mine.setElapsedRealtimeNanos(android.os.SystemClock.elapsedRealtimeNanos());a.gps.fix=mine;a.gps.sharing=true;
+                    android.location.Location theirs=new android.location.Location(mine);theirs.setLatitude(46.201);c.gps.fix=theirs;c.gps.sharing=true;
+                    a.relay.query(33,"{}",android.os.SystemClock.elapsedRealtime());transferRelay(a,b,c);assertTrue(a.fresh(target));
+                    activity.engine=a;a.selectedSession=33;a.uwb.targetSession=33;a.uwb.distance=2.;a.uwb.azimuth=0.;a.uwb.measuredAt=android.os.SystemClock.elapsedRealtime();
+                    MainActivity.Estimate estimate=activity.estimate(target);assertEquals("GPS preko mreže ~",estimate.distanceSource);assertTrue(estimate.meters>100&&estimate.meters<120); // endpoint coordinate separation, never the synthetic 2 m UWB segment
+                    var sent=a.messages.send(33,"Ana","Kod izlaza.",android.os.SystemClock.elapsedRealtime());a.relayUrgent(33);transferRelay(a,b,c);
+                    assertEquals("DOSTAVLJENO",sent.state);assertEquals(1,c.messages.history(android.os.SystemClock.elapsedRealtime()).size());assertTrue(b.messages.history(android.os.SystemClock.elapsedRealtime()).isEmpty());
+                    c.gps.stop();a.relayUrgent(33);transferRelay(a,b,c);assertTrue(Double.isNaN(activity.estimate(target).meters));
+                    a.startUwb(target);assertNull(a.uwb.token); // indirect reachability never starts direct ranging
+                }catch(Exception e){throw new AssertionError(e);}finally{activity.engine=original;a.stop();b.stop();c.stop();}
+            });
+        }
+    }
     @Test public void startWithoutGroupHasSpecificOnboarding(){
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             awaitFocus(scenario);

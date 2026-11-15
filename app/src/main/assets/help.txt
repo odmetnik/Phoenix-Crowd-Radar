@@ -1,4 +1,4 @@
-VERSION: 0.7.0-dev
+VERSION: 0.8.0-dev
 PHOENIX CROWD RADAR — POMOĆ
 Ažurirano: 15. 11. 2026.
 
@@ -6,8 +6,9 @@ BRZI POČETAK
 1. U Moj profil upiši ime. GRUPA → Kreiraj grupu; kolega skenira QR ili se pridruži brojem. Svi koristite istu verziju.
 2. Na oba telefona uključi Bluetooth, Wi-Fi i sistemsku Lokaciju. POKRENI POVEZIVANJE pokreće automatsko otkrivanje članova i Android servis s trajnom obavijesti. Otvaranje same aplikacije ne pokreće servis. Odobri obližnje uređaje, preciznu lokaciju i obavijesti. GPS dijeljenje ostaje zasebno isključeno dok ga ne odabereš.
 3. ODABERI OSOBU bira člana za fokus i automatske pokušaje preciznog mjerenja. Kada povezivanje nije pokrenuto, veliki gumb zove se POKRENI I ODABERI OSOBU: pokreće povezivanje i nudi odabir kada se članovi pojave. PROMIJENI OSOBU mijenja fokus, ne zaustavlja otkrivanje ostalih.
-4. AR SMJER · KAMERA prikazuje stražnju kameru, strelicu za odabranu osobu, imena, udaljenosti i shematsku mrežu. SLJEDEĆI ČLANOVI lista članove po tri.
-5. Zaključavanje ekrana ili druga aplikacija više ne zaustavlja aktivno povezivanje. ZAUSTAVI POVEZIVANJE ili Zaustavi u trajnoj obavijesti zatvara sve veze, GPS i UWB. Kamera se u pozadini zatvara. Sesija završava najkasnije nakon šest sati; za nastavak je ponovno pokreni.
+4. PROSLJEĐIVANJE: uređaji s verzijom 0.8 automatski prenose podatke članova iste grupe preko drugih članova, najviše četiri radio-veze. Primjer TI → Marko → Ana. Krajnji telefon ne mora biti u izravnom dometu, ali svaki susjedni par mora imati funkcionalnu vezu. Svi posrednici trebaju aktivno povezivanje.
+5. AR SMJER · KAMERA prikazuje stražnju kameru, strelicu za odabranu osobu, imena, udaljenosti i shematsku mrežu. SLJEDEĆI ČLANOVI lista članove po tri.
+6. Zaključavanje ekrana ili druga aplikacija više ne zaustavlja aktivno povezivanje. ZAUSTAVI POVEZIVANJE ili Zaustavi u trajnoj obavijesti zatvara sve veze, GPS i UWB. Kamera se u pozadini zatvara. Sesija završava najkasnije nakon šest sati; za nastavak je ponovno pokreni.
 
 BLE — BLIZINA I PRONALAŽENJE ČLANOVA
 Bluetooth Low Energy oglašava grupnu prisutnost i skenira članove. RSSI je primljena jačina signala u dBm. Ljudi, džepovi i refleksije mijenjaju signal; jači signal nije dokaz približavanja. BLE signal ne pretvaramo u metre ili smjer. Kompas ne može odrediti smjer Bluetooth signala.
@@ -40,10 +41,10 @@ Nearby P2P_POINT_TO_POINT daje jedan dodatni par. SDK bira dostupni Bluetooth/Wi
 Wi-Fi Aware otkriva i razmjenjuje kratke šifrirane podatke izravno, bez routera, interneta i Google Play usluga. Oba telefona trebaju Aware. Veći paket dijelimo u ograničene fragmente, ponovno sastavljamo te provjeravamo AES-GCM i svježi izazov. Razmjena se pokušava s najviše šest Aware članova istodobno, uz fokus kao prioritet; otkrivanje ima do 24 člana.
 Wi-Fi RTT pokušava stvarno mjerenje odabranog Aware člana kad oba prijavljuju podršku i uspostavljena je svježa Aware razmjena. Najranije svake 4 sekunde. Prikazujemo samo uspješan rezultat; stariji od 8 sekundi se skriva. Starost računamo prema Androidovu vremenu stvarnog RTT mjerenja, ne vremenu primitka povratnog poziva. Standardna devijacija nije zajamčena točnost. RTT daje udaljenost, NE smjer. Ne mjerimo sajamske pristupne točke i ne nazivamo ih kolegama.
 Aware i drugi Wi-Fi načini mogu se međusobno isključivati zbog ograničenja čipa/Androida. Nedostupnost se prikazuje; ne pokušavamo nasilno resetirati radio. Neuspjele dodatne sesije pokušavaju se ponovno najranije nakon 20 sekundi. Nearby već upravlja svojim BT/Wi-Fi mehanizmima; zaseban paralelni Wi-Fi Direct/Classic Bluetooth sloj nije dodan. GPS i kompas su mjerenje, nisu dodatni transport.
-BT i Wi-Fi ne zbrajaju snagu signala. Stvaran dobitak dometa nije izmjeren na dva fizička telefona. Ako svi lokalni putevi izgube vezu, nema novih poruka ili koordinata. Nema mesha, internet poslužitelja ili udaljenog praćenja.
+BT i Wi-Fi ne zbrajaju snagu signala. Stvaran dobitak dometa nije izmjeren na dva fizička telefona. Ako svi lokalni putevi izgube vezu, nema novih poruka ili koordinata. Od 0.8 postoji ograničeno aplikacijsko prosljeđivanje preko članova grupe. Nema internet poslužitelja niti zajamčene pokrivenosti cijelog sajma.
 
 PORUKE I PING
-Kratke poruke do 48 znakova koriste dostupne šifrirane BLE, Nearby i Aware kanale. Primitak istog ID-a na više kanala ne duplicira poruku. BLE poruke kompatibilne su s 0.5+, Nearby s 0.6+, Aware i nove automatske mogućnosti traže 0.7 na oba telefona.
+Kratke poruke do 48 znakova koriste dostupne šifrirane BLE, Nearby i Aware kanale. Od 0.8 mogu putovati i preko posrednih članova. Za posredovanje treba 0.8 na svim uređajima na putu. Potvrda se priznaje tek od krajnje aplikacije; primitak na Markovu telefonu nije dostava Ani. Poruke i PING mogu kasniti zbog posredovanja i rasporeda razmjene. Primitak istog ID-a na više kanala ne duplicira poruku. BLE poruke kompatibilne su s 0.5+, Nearby s 0.6+, Aware i nove automatske mogućnosti traže 0.7 na oba telefona.
 Jedna odlazna poruka čeka potvrdu najviše 60 sekundi. DOSTAVLJENO znači primitak u drugoj aplikaciji, ne da je osoba pročitala. NIJE POTVRĐENO nije dokaz da nije primila; valjana kasna potvrda dobiva poseban status. Stop prekida čekanje. Potvrda je vezana uz ID i ciljnog pošiljatelja.
 Povijest do 20 zapisa je samo u memoriji sesije/procesa. Povratak ili ponovno stvaranje ekrana je više ne briše; gašenje procesa je briše, a promjena grupe briše sve poruke. Nema spremanja teksta u datoteke ili logove. Obavijest najavljuje pošiljatelja, bez sadržaja poruke. Grupa dijeli ključ: adresiranje jednom članu nije kriptografska privatnost od ostalih članova.
 PING traži kratak zvučni signal, nudi se 10 sekundi i reproducira jednom po ID-u. Nema potvrdu primitka i ne mjeri udaljenost. Čujnost ovisi o glasnoći i Ne ometaj.
@@ -52,8 +53,16 @@ Za odabranu osobu upozorenje na gubitak veze nastaje tek nakon stvarnog prethodn
 KAKO ČITATI RADAR / PRECIZNOST
 POKRENI POVEZIVANJE uključuje otkrivanje svih članova i održavanje veza; ODABERI OSOBU bira fokus i pokušaj preciznog lociranja. Animirani snop je vizualan, ne mjeri kut skeniranjem antene.
 AUTO obuhvaća svježe metarske podatke; FOKUS zumira odabranu osobu. Radijusi su 0,5 / 1 / 2 / 5 / 10 / 20 / 50 m i veći, s glatkim prijelazom i metarskim prstenovima. Član izvan fokusirane skale dobiva rubnu oznaku > i tekst IZVAN TRENUTNE SKALE. Bez metara nema metarskog mjerila. Bliski natpis pomaknut je vodilicom do stvarne točke.
-Udaljenost ima prioritet: svjež UWB, zatim valjan Wi-Fi RTT, zatim GPS, zatim samo podatkovna/BLE blizina bez metara. Smjer i udaljenost mogu imati različite izvore. Bez valjanog smjera nema točke, nego krug ili jasan tekst. Zastario član označen je ZADNJE VIĐEN; starost zadnje razmjene prikazana je uz vezu. Svježi RSSI sam ne dokazuje svježu GPS lokaciju.
+Za člana povezanog samo preko posrednika prikazujemo PREKO ČLANOVA, broj veza i put do krajnjeg uređaja. Smijemo prikazati samo svježu GPS procjenu između vlastitih i krajnjih koordinata, označenu GPS preko mreže ~. UWB/RTT podatak izmjeren na posredniku ne prenosi se kao tvoj razmak. Bez valjanih koordinata ispisujemo MREŽA / SMJER NEPOZNAT i — m u AR-u.
+Za izravno povezane uređaje udaljenost ima prioritet: svjež UWB, zatim valjan Wi-Fi RTT, zatim GPS, zatim samo podatkovna/BLE blizina bez metara. Smjer i udaljenost mogu imati različite izvore. Bez valjanog smjera nema točke, nego krug ili jasan tekst. Zastario član označen je ZADNJE VIĐEN; starost zadnje razmjene prikazana je uz vezu. Svježi RSSI sam ne dokazuje svježu GPS lokaciju.
 Sučelje je lokalni HTML/Canvas u Android WebViewu. Android servis održava radio, a kamera i orijentacija ostaju u vidljivom ekranu. RADAR, GRUPA i PING su odvojene kartice. DEMO zaustavlja stvarni servis i prikazuje simulirane osobe; nisu stvarno locirane.
+
+PROSLJEĐIVANJE I UDALJENOST KRAJNJEG TELEFONA
+Ovo je aplikacijsko prosljeđivanje, ne Bluetooth SIG Mesh. Mali paketi s putom prelaze preko postojećih BLE GATT, Nearby ili Aware kanala. Do 24 otkrivena člana, najviše 4 radio-veze po putu, ograničeni redovi i cache ID-eva. Nema jamstva da svi čipovi podržavaju sve veze istodobno. Nearby ostaje jedan dodatni par; BLE/Aware mogu povezivati više članova i premošćivati put.
+Posrednici objavljuju identitet/ime i mogućnosti krajnje aplikacije, bez potvrde hardverske atestacije. Krajnju lokaciju tražimo novim nasumičnim izazovom. Odgovor vrijedi samo za aktivan zahtjev i očekivanu krajnju sesiju, najviše 20 sekundi. Primanje kopije starog odgovora ne osvježava koordinate. GPS starosti pribrajamo CIJELO vrijeme povratnog puta, uključujući čekanje na posrednicima; ako ukupno prijeđe 10 sekundi, ne prikazujemo metre. Zbog toga lanac može prenositi poruke, a ipak nemati dovoljno svježu udaljenost.
+Udaljenost A–B plus B–C nije ravna udaljenost A–C. Ne zbrajamo UWB/RTT/BLE segmente i ne izmišljamo smjer iz putanje mreže. U paviljonu s lošim GPS-om može se prikazati TI → Marko → Ana i dostavljati poruke, ali udaljenost do Ane ostaje nepoznata. AR strelica prema krajnjem telefonu postoji samo uz valjanu GPS geometriju i kompas. Kada se približiš krajnjem telefonu i uspostaviš izravnu vezu, ponovno se pokušavaju stvarni UWB/RTT izvori.
+Zaštita od kruženja koristi put bez ponovljenih članova, granicu 4 veze i ID paketa. Red ima do 48 zapisa, cache 512 ID-eva, do 8 otvorenih zahtjeva. Otkriven put istječe nakon 30 sekundi, a oznaka svježeg krajnjeg odgovora nakon 15 sekundi. Fokus daje prednost prvom posredniku; slanje poruke/PING-a pokreće novi zahtjev s aktualnim sadržajem.
+Svaki radio-kanal ostaje šifriran grupnim ključem. Članovi dijele ključ, pa posredovanje nije privatno end-to-end šifriranje od ostalih članova. Ne prosljeđujemo UWB ključeve, antenske kutove, fokus za pokretanje udaljenog UWB-a ni RTT udaljenosti drugih parova. GPS se prenosi samo ako ga je krajnji korisnik uključio. Nema zapisivanja ruta/koordinata u datoteke i logove; zaustavljanje briše transportne redove.
 
 AR — EKSPERIMENTALNI PRIKAZ SMJERA
 AR SMJER · KAMERA koristi CameraX stražnju kameru, bez snimanja, spremanja, slanja slike ili prepoznavanja lica. Kamera se odmah oslobađa pri zatvaranju, brzom ponovnom otvaranju i odlasku u pozadinu. Nema potrebne ARCore instalacije.
@@ -67,7 +76,14 @@ Ne zapisujemo koordinate, UWB ključeve, tekst poruka ili sliku kamere u datotek
 Korisnički pokrenut foreground servis koristi tipove connectedDevice i location, trajnu obavijest s gumbom Zaustavi i ograničeni CPU wake lock. Troši više baterije nego ugašena aplikacija. Android, proizvođačeva štednja, zabrane skeniranja, nedostupna lokacija ili ugašen radio mogu prekinuti rad. Ne jamčimo neprekidan rad na svakom telefonu ni pokrivenost cijelog sajma. Dozvola obavijesti može biti odbijena bez blokiranja servisa; aplikacija tada ne šalje obične obavijesti ni njihova osvježavanja; tada kontrola Zaustavi ostaje u aplikaciji i Androidovu pregledu aktivnih aplikacija.
 Nema pokretanja pri paljenju telefona, automatskog ponovnog pokretanja nakon smrti procesa ili kamere u pozadini. Proces može biti ubijen; tada nema nastavka dok korisnik ponovno ne pokrene radar. Sesija je ograničena na šest sati. Testovi emulatora ne potvrđuju fizičku radio kompatibilnost, preciznost ili stvaran dobitak dometa.
 
-PROMJENE — 0.7.0-dev
+PROMJENE — 0.8.0-dev
+• Prosljeđivanje preko članova iste grupe, najviše četiri veze; prikaz puta i razlika izravne/posredovane veze.
+• Svježi zahtjevi do krajnjeg telefona; GPS udaljenost i opcionalni smjer od krajnjih koordinata, bez zbrajanja segmenata.
+• Poruke/PING preko posrednika i potvrda poruke od krajnje aplikacije.
+• Novi opcionalni BLE MESH kanal; starije verzije ostaju izravni članovi, ne novi posrednici.
+• Radar i AR označavaju GPS preko mreže, put i nedostupne metre. Pomoć objašnjava granice preciznosti i kašnjenja.
+
+Promjene 0.7.0-dev
 • Android foreground servis održava sesiju uz zaključan ekran i promjenu/ponovno stvaranje ekrana; trajna obavijest, Zaustavi i ograničenje sesije.
 • Automatski BLE/Nearby/Aware pokušaji i stabilan session ID tijekom ponovnog BLE povezivanja.
 • Izravni Wi-Fi Aware kanal za članove grupe i stvarni pokušaj Wi-Fi RTT mjerenja odabranog kompatibilnog člana.
